@@ -47,4 +47,13 @@ MIRA-Satellite-Anomaly-Investigator/
    ```bash
    git clone https://github.com/ShadenBawazir/MIRA-Satellite-Anomaly-Investigator.git
 
-   
+   Install dependencies:
+   pip install -r requirements.txt
+
+   Run the app:
+   streamlit run app.py
+
+
+   📧 Contact
+Shaden Bawazir
+GitHub
