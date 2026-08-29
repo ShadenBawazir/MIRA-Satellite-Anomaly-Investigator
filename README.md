@@ -42,18 +42,19 @@ MIRA-Satellite-Anomaly-Investigator/
 ├── requirements.txt # Python dependencies
 └── README.md # Project documentation
 
+
 ## 🚀 How to Run
 1. Clone the repository:
    ```bash
    git clone https://github.com/ShadenBawazir/MIRA-Satellite-Anomaly-Investigator.git
+Install dependencies:
 
-   Install dependencies:
-   pip install -r requirements.txt
+bash
+pip install -r requirements.txt
+Run the app:
 
-   Run the app:
-   streamlit run app.py
-
-
-   📧 Contact
+bash
+streamlit run app.py
+📧 Contact
 Shaden Bawazir
 GitHub
