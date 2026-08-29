@@ -42,6 +42,7 @@ MIRA-Satellite-Anomaly-Investigator/
 ├── requirements.txt # Python dependencies
 └── README.md # Project documentation
 
+text
 
 ## 🚀 How to Run
 1. Clone the repository:
