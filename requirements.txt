@@ -1,45 +1,4 @@
-{
-  "nbformat": 4,
-  "nbformat_minor": 0,
-  "metadata": {
-    "colab": {
-      "provenance": []
-    },
-    "kernelspec": {
-      "name": "python3",
-      "display_name": "Python 3"
-    },
-    "language_info": {
-      "name": "python"
-    }
-  },
-  "cells": [
-    {
-      "cell_type": "code",
-      "execution_count": 1,
-      "metadata": {
-        "colab": {
-          "base_uri": "https://localhost:8080/"
-        },
-        "id": "YQ6M7oZ-2vxY",
-        "outputId": "2273938a-8c56-434a-ad38-cdd09416ec61"
-      },
-      "outputs": [
-        {
-          "output_type": "stream",
-          "name": "stdout",
-          "text": [
-            "Writing requirements.txt\n"
-          ]
-        }
-      ],
-      "source": [
-        "%%writefile requirements.txt\n",
-        "streamlit\n",
-        "pandas\n",
-        "numpy\n",
-        "scikit-learn"
-      ]
-    }
-  ]
-}
+streamlit
+pandas
+numpy
+scikit-learn
