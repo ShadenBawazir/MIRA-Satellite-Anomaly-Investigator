@@ -401,8 +401,7 @@ def inject_anomalies(df: pd.DataFrame, anomaly_rate: float = 0.08) -> pd.DataFra
         direction = rng.choice([-1, 1])
         df.at[i, col] += direction * magnitude * df[col].std()
     return df
-
-def render_alert_banner(n_anomalies, risk_counts):
+    def render_alert_banner(n_anomalies, risk_counts):
     has_high = risk_counts.get("HIGH", 0) > 0
     if has_high:
         st.markdown(f"<div class='alert-banner'>🚨 CRITICAL ALERT — {risk_counts['HIGH']} HIGH-RISK anomal{'y' if risk_counts['HIGH']==1 else 'ies'} detected! Immediate mission review required.</div>", unsafe_allow_html=True)
@@ -482,13 +481,213 @@ def render_heatmap(df, features, key_suffix=""):
                                height=max(260, min(60 * len(features), 600)), margin=dict(l=20, r=20, t=10, b=20),
                                coloraxis_colorbar=dict(tickfont=dict(color="#b8cef7"), title_font=dict(color="#b8cef7")))
         st.plotly_chart(fig_heat, use_container_width=True, key=f"heatmap{key_suffix}")
+        # ============================================================
+# Mission Status & Mission Intelligence Report Functions
+# ============================================================
+
+def get_mission_status(risk_counts):
+    if risk_counts.get("HIGH", 0) > 0:
+        return "CRITICAL", "🚨 Immediate mission review required."
+    elif risk_counts.get("MEDIUM", 0) > 0:
+        return "ATTENTION", "⚠️ High-risk telemetry requires operator review."
+    elif risk_counts.get("LOW", 0) > 0:
+        return "MONITOR", "🟡 Anomalous behavior detected. Continue monitoring."
+    else:
+        return "NOMINAL", "✅ Telemetry is within learned nominal behavior."
+
+def generate_mission_recommendation(causes):
+    if not causes:
+        return {
+            "impact": "No dominant subsystem risk identified.",
+            "actions": ["Continue nominal monitoring."]
+        }
+    primary = causes[0]
+    feature = primary["feature"]
+    severity = primary["severity"]
+    
+    impact = MISSION_IMPACT_LIBRARY.get(feature, {}).get(severity, "Potential subsystem degradation detected.")
+    actions = MISSION_ACTION_LIBRARY.get(feature, {}).get(severity, ["Continue monitoring the affected telemetry."])
+    
+    return {
+        "primary_cause": primary,
+        "impact": impact,
+        "actions": actions
+    }
+
+def build_mission_summary(test_df, preds, scores):
+    n_total = len(preds)
+    n_anomalies = int((preds == -1).sum())
+    if n_anomalies == 0:
+        return {"total": n_total, "anomalies": 0, "message": "No anomalous behavior detected."}
+    anomaly_idx = np.where(preds == -1)[0]
+    worst_idx = anomaly_idx[np.argmin(scores[anomaly_idx])]
+    return {
+        "total": n_total,
+        "anomalies": n_anomalies,
+        "worst_index": int(worst_idx),
+        "worst_score": float(scores[worst_idx])
+    }
+
+def apply_scenario(df, scenario):
+    df = df.copy()
+    if scenario == "Power Failure":
+        df["Battery Voltage (V)"] -= 3.0
+        df["Solar Panel Output (W)"] *= 0.55
+    elif scenario == "Thermal Stress":
+        df["CPU Temperature (°C)"] += 18
+    elif scenario == "Communication Loss":
+        df["Signal Strength (dBm)"] -= 20
+        df["Downlink Rate (Mbps)"] *= 0.2
+    elif scenario == "Attitude Drift":
+        df["Attitude Error (deg)"] += 0.5
+    elif scenario == "Multi-Subsystem Failure":
+        df["Battery Voltage (V)"] -= 3
+        df["CPU Temperature (°C)"] += 15
+        df["Signal Strength (dBm)"] -= 15
+    return df
+
+# ============================================================
+# Mission Impact & Action Libraries
+# ============================================================
+
+MISSION_IMPACT_LIBRARY = {
+    "Battery Voltage (V)": {
+        "high": "Power availability may become insufficient for non-essential spacecraft operations.",
+        "medium": "Power margin is reduced and should be monitored."
+    },
+    "Solar Panel Output (W)": {
+        "high": "Reduced generation may accelerate battery depletion.",
+        "medium": "Reduced generation could lower the available power margin."
+    },
+    "CPU Temperature (°C)": {
+        "high": "Thermal stress may affect onboard computing reliability.",
+        "medium": "Thermal conditions should be monitored."
+    },
+    "Signal Strength (dBm)": {
+        "high": "Communication reliability may be compromised.",
+        "medium": "Communication margin is reduced."
+    },
+    "Attitude Error (deg)": {
+        "high": "Pointing instability may affect payload operations and communication.",
+        "medium": "Attitude stability requires monitoring."
+    },
+    "Thruster Fuel (%)": {
+        "high": "Reduced propellant margin may constrain future attitude or orbit-control operations.",
+        "medium": "Propellant margin should be monitored."
+    },
+    "Memory Usage (%)": {
+        "high": "Memory exhaustion could disrupt onboard software processes.",
+        "medium": "High utilization may increase software reliability risk."
+    },
+    "Downlink Rate (Mbps)": {
+        "high": "Reduced downlink capacity may delay or prevent telemetry and payload data transmission.",
+        "medium": "Reduced throughput may affect data delivery."
+    }
+}
+
+MISSION_ACTION_LIBRARY = {
+    "Battery Voltage (V)": {
+        "high": [
+            "Verify solar-array power generation.",
+            "Reduce non-essential payload activity.",
+            "Monitor battery recovery in the next telemetry window."
+        ],
+        "medium": [
+            "Monitor battery voltage trend.",
+            "Check solar-array output."
+        ]
+    },
+    "Solar Panel Output (W)": {
+        "high": [
+            "Verify solar-array orientation.",
+            "Check for power-generation degradation.",
+            "Monitor battery state."
+        ],
+        "medium": [
+            "Monitor solar output trend.",
+            "Check spacecraft attitude."
+        ]
+    },
+    "CPU Temperature (°C)": {
+        "high": [
+            "Check onboard processor workload.",
+            "Review thermal telemetry.",
+            "Reduce non-essential processing if required."
+        ],
+        "medium": [
+            "Monitor CPU temperature trend.",
+            "Review processor workload."
+        ]
+    },
+    "Signal Strength (dBm)": {
+        "high": [
+            "Verify ground-link availability.",
+            "Check spacecraft attitude and antenna pointing.",
+            "Prioritize critical telemetry transmission."
+        ],
+        "medium": [
+            "Monitor communication strength.",
+            "Verify antenna pointing."
+        ]
+    },
+    "Attitude Error (deg)": {
+        "high": [
+            "Verify attitude-control telemetry.",
+            "Check reaction-wheel or actuator behavior.",
+            "Prioritize spacecraft stabilization."
+        ],
+        "medium": [
+            "Monitor attitude trend.",
+            "Review attitude-control subsystem telemetry."
+        ]
+    },
+    "Thruster Fuel (%)": {
+        "high": [
+            "Verify propellant telemetry.",
+            "Review recent maneuver history.",
+            "Reassess remaining maneuver capability."
+        ],
+        "medium": [
+            "Monitor propellant consumption.",
+            "Review recent maneuvers."
+        ]
+    },
+    "Memory Usage (%)": {
+        "high": [
+            "Inspect onboard software memory usage.",
+            "Identify abnormal process growth.",
+            "Consider restarting non-critical processes if operationally safe."
+        ],
+        "medium": [
+            "Monitor memory utilization.",
+            "Review onboard process activity."
+        ]
+    },
+    "Downlink Rate (Mbps)": {
+        "high": [
+            "Verify communication link health.",
+            "Check antenna and pointing status.",
+            "Prioritize mission-critical data."
+        ],
+        "medium": [
+            "Monitor downlink throughput.",
+            "Review communication conditions."
+        ]
+    }
+}
+# ============================================================
+# Sidebar & Main Header
+# ============================================================
 
 with st.sidebar:
     st.markdown("## 🛰️ MIRA Controls")
     st.markdown("<hr>", unsafe_allow_html=True)
+    
+    # Mode Selection
     analysis_mode = st.radio("Analysis Mode", options=["🛰️ Real OPS-SAT Data", "🔬 Mission Simulation"], index=0)
     IS_REAL = analysis_mode.startswith("🛰️")
     st.markdown("<hr>", unsafe_allow_html=True)
+    
     if IS_REAL:
         st.markdown("<div style='background:#0a1a0a;border:1px solid #22c55e;border-radius:8px;padding:10px 14px;margin-bottom:10px;'><span style='color:#86efac;font-weight:700;font-size:0.85rem;'>🛰️ REAL OPS-SAT DATA</span><br><span style='color:#57606a;font-size:0.78rem;line-height:1.6;'>ESA OPS-SAT-1 mission telemetry.<br>Model trains on nominal segments (train=1, anomaly=0).<br><b>Fixed config:</b> OneClassSVM(rbf, nu=0.22)</span></div>", unsafe_allow_html=True)
         nu_val = 0.22
@@ -505,6 +704,22 @@ with st.sidebar:
         st.markdown("### 📡 Telemetry Simulation")
         n_frames = st.slider("Training frames", 100, 1000, 300, 50)
         anomaly_pct = st.slider("Injected anomaly %", 1, 30, 8, 1)
+    
+    # Mission Scenario Selection for Simulation
+    if not IS_REAL:
+        st.markdown("<hr>", unsafe_allow_html=True)
+        st.markdown("### 🎯 Mission Scenario")
+        scenario = st.selectbox("Select Scenario", [
+            "Nominal Mission",
+            "Power Failure",
+            "Thermal Stress",
+            "Communication Loss",
+            "Attitude Drift",
+            "Multi-Subsystem Failure"
+        ])
+    else:
+        scenario = "Nominal Mission"
+    
     st.markdown("<hr>", unsafe_allow_html=True)
     run_btn = st.button("🚀 Run MIRA Analysis", use_container_width=True)
     st.markdown("<hr>", unsafe_allow_html=True)
@@ -513,6 +728,10 @@ with st.sidebar:
 st.markdown("<div style='text-align:center;padding:24px 0 8px 0;'><span style='font-size:2.8rem;'>🛰️</span><h1 style='font-size:2.5rem;margin:4px 0 0 0;color:#7eb8f7;letter-spacing:2px;'>MIRA</h1><p style='color:#57606a;font-size:1rem;letter-spacing:4px;margin-top:2px;'>MISSION INTELLIGENCE &amp; RISK ANALYZER</p></div>", unsafe_allow_html=True)
 st.markdown("<hr>", unsafe_allow_html=True)
 
+# ============================================================
+# Idle Screen
+# ============================================================
+
 if not run_btn:
     if IS_REAL:
         sub = "Select <b style='color:#86efac;'>🛰️ Real OPS-SAT Data</b> mode and click"
@@ -520,40 +739,56 @@ if not run_btn:
         sub = "Configure the simulation parameters and click"
     st.markdown(f"<div style='text-align:center;padding:60px 20px;color:#57606a;'><div style='font-size:4rem;margin-bottom:16px;'>🌌</div><h3 style='color:#3b5de7;'>Awaiting Mission Start</h3><p>{sub} <b style='color:#7eb8f7;'>🚀 Run MIRA Analysis</b> to begin satellite monitoring.</p></div>", unsafe_allow_html=True)
     st.stop()
+    # ============================================================
+# Real OPS-SAT Data Analysis Mode
+# ============================================================
 
 if IS_REAL:
     st.markdown("<div style='text-align:center;margin-bottom:8px;'><span class='mode-badge-real'>🛰️ REAL OPS-SAT DATA — ESA OPS-SAT-1 Mission Telemetry</span></div>", unsafe_allow_html=True)
+    
     with st.spinner("📂 Loading OPS-SAT dataset…"):
         raw_df, feature_cols, load_err = load_opssat_dataset("dataset.csv")
+    
     if load_err:
         st.error(f"**Dataset Error:** {load_err}")
         st.markdown("<div class='cause-card cause-high'><div class='cause-title'>📁 dataset.csv not found</div>Place <code>dataset.csv</code> in the same directory as <code>app.py</code> before running the app.</div>", unsafe_allow_html=True)
         st.stop()
+    
     n_train_nominal = int(((raw_df["train"] == 1) & (raw_df["anomaly"] == 0)).sum()) if "train" in raw_df.columns and "anomaly" in raw_df.columns else len(raw_df)
     channels = raw_df["channel"].unique().tolist() if "channel" in raw_df.columns else ["—"]
     ch_str = ", ".join(str(c) for c in channels[:6]) + ("…" if len(channels) > 6 else "")
+    
     st.markdown(f"<div class='dataset-info'><b>Dataset:</b> ESA OPS-SAT-1 Telemetry &nbsp;|&nbsp; <b>Total segments:</b> {len(raw_df):,} &nbsp;|&nbsp; <b>Nominal training segments:</b> {n_train_nominal:,} &nbsp;|&nbsp; <b>Features used:</b> {len(feature_cols)} &nbsp;|&nbsp; <b>Channels:</b> {ch_str}</div>", unsafe_allow_html=True)
+    
     if "train" in raw_df.columns and "anomaly" in raw_df.columns:
         train_df = raw_df[(raw_df["train"] == 1) & (raw_df["anomaly"] == 0)].copy()
         test_df = raw_df[raw_df["train"] == 0].copy()
     else:
         train_df = raw_df.copy()
         test_df = raw_df.copy()
+    
     if len(train_df) == 0:
         st.error("No nominal training segments found (train=1, anomaly=0). Check your dataset.")
         st.stop()
+    
     with st.spinner("🤖 Training OneClassSVM on nominal OPS-SAT segments…"):
         model, scaler = train_ocsvm(train_df, feature_cols, nu=0.22, kernel="rbf", gamma="scale")
+    
     with st.spinner("🔍 Scanning all telemetry segments…"):
         preds, scores = run_predict(model, scaler, test_df, feature_cols)
+    
     normal_stats = train_df[feature_cols].describe().loc[["mean", "std"]]
     n_anomalies = int((preds == -1).sum())
+    
+    # Calibrate operational risk levels from detected anomaly scores
     thresholds = calculate_risk_thresholds(scores, preds)
     risk_counts = {"HIGH": 0, "MEDIUM": 0, "LOW": 0}
     for s_val, p in zip(scores, preds):
         if p == -1:
             risk = risk_level(s_val, thresholds)
             risk_counts[risk] += 1
+    
+    # Ground Truth Validation
     has_labels = "anomaly" in test_df.columns
     if has_labels:
         true_labels = test_df["anomaly"].values
@@ -567,8 +802,28 @@ if IS_REAL:
         f1 = 2 * precision * recall / max(precision + recall, 1e-9)
         accuracy = accuracy_score(true_labels, (preds == -1).astype(int))
         f1_score_val = f1_score(true_labels, (preds == -1).astype(int))
+    
+    # Mission Status
+    status, status_message = get_mission_status(risk_counts)
+    
+    # Mission Summary
+    summary = build_mission_summary(test_df, preds, scores)
+    
+    # Display: Alert Banner
     render_alert_banner(n_anomalies, risk_counts)
+    
+    # Display: Mission Status Card
+    st.markdown(f"<div class='section-title'>🛰️ Mission Status: {status}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='background:#1a1202;border:1px solid #f59e0b;border-radius:8px;padding:12px;margin-bottom:10px;'><b>{status_message}</b></div>", unsafe_allow_html=True)
+    
+    # Display: KPIs
     render_kpi_row(preds, scores, risk_counts)
+    
+    # Display: Mission Intelligence Summary
+    st.markdown("<div class='section-title'>🧠 Mission Intelligence Summary</div>", unsafe_allow_html=True)
+    st.markdown(f"**Total Segments Analysed:** {summary['total']:,}  |  **Anomalies Detected:** {summary['anomalies']:,}  |  **Most Severe Segment:** {summary.get('worst_index', 'N/A')}  |  **Score:** {summary.get('worst_score', 0):.4f}")
+    
+    # Ground Truth Validation
     if has_labels:
         st.markdown("<hr>", unsafe_allow_html=True)
         st.markdown("<div class='section-title'>✅ Ground-Truth Validation</div>", unsafe_allow_html=True)
@@ -582,37 +837,80 @@ if IS_REAL:
         g5.metric("📊 Accuracy", f"{accuracy:.2%}")
         g6.metric("🎯 F1 Score", f"{f1:.2%}")
         g7.metric("📋 Confusion Matrix", f"TN: {tn}, FP: {fp}, FN: {fn}, TP: {tp}")
+    
+    # Charts
     st.markdown("<hr>", unsafe_allow_html=True)
     x_labels = test_df["segment"].tolist() if "segment" in test_df.columns else None
     render_charts(test_df, preds, scores, scaler, feature_cols, x_labels)
+    
+    # Inspector
     st.markdown("<hr>", unsafe_allow_html=True)
     render_inspector(test_df, preds, scores, normal_stats, feature_cols, OPSSAT_ROOT_CAUSE_LIBRARY, thresholds, "Segment")
+    
+    # Heatmap
     st.markdown("<hr>", unsafe_allow_html=True)
     render_heatmap(test_df, feature_cols, key_suffix="_real")
+
 else:
+    # ============================================================
+    # Mission Simulation Mode
+    # ============================================================
     st.markdown("<div style='text-align:center;margin-bottom:8px;'><span class='mode-badge-sim'>🔬 MISSION SIMULATION — All values are SYNTHETIC</span></div>", unsafe_allow_html=True)
+    
     with st.spinner("🛰️ Generating synthetic telemetry stream…"):
         normal_df = generate_normal_data(n_frames)
-        test_df = inject_anomalies(normal_df.copy(), anomaly_rate=anomaly_pct / 100)
+        test_df = apply_scenario(normal_df.copy(), scenario)
         normal_stats = normal_df.describe().loc[["mean", "std"]]
+    
     with st.spinner("🤖 Training OneClassSVM on synthetic nominal data…"):
         model, scaler = train_ocsvm(normal_df, SIM_FEATURES, nu=nu_val, kernel=kernel_val, gamma=gamma_val)
+    
     with st.spinner("🔍 Scanning synthetic telemetry frames…"):
         preds, scores = run_predict(model, scaler, test_df, SIM_FEATURES)
+    
     n_anomalies = int((preds == -1).sum())
+    
+    # Calibrate operational risk levels from detected anomaly scores
     thresholds = calculate_risk_thresholds(scores, preds)
     risk_counts = {"HIGH": 0, "MEDIUM": 0, "LOW": 0}
     for s_val, p in zip(scores, preds):
         if p == -1:
             risk = risk_level(s_val, thresholds)
             risk_counts[risk] += 1
+    
+    # Mission Status
+    status, status_message = get_mission_status(risk_counts)
+    
+    # Mission Summary
+    summary = build_mission_summary(test_df, preds, scores)
+    
+    # Display: Alert Banner
     render_alert_banner(n_anomalies, risk_counts)
+    
+    # Display: Mission Status Card
+    st.markdown(f"<div class='section-title'>🛰️ Mission Status: {status}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='background:#1a1202;border:1px solid #f59e0b;border-radius:8px;padding:12px;margin-bottom:10px;'><b>{status_message}</b></div>", unsafe_allow_html=True)
+    
+    # Display: KPIs
     render_kpi_row(preds, scores, risk_counts)
+    
+    # Display: Mission Intelligence Summary
+    st.markdown("<div class='section-title'>🧠 Mission Intelligence Summary</div>", unsafe_allow_html=True)
+    st.markdown(f"**Total Segments Analysed:** {summary['total']:,}  |  **Anomalies Detected:** {summary['anomalies']:,}  |  **Most Severe Frame:** {summary.get('worst_index', 'N/A')}  |  **Score:** {summary.get('worst_score', 0):.4f}")
+    
+    # Charts
     st.markdown("<hr>", unsafe_allow_html=True)
     render_charts(test_df, preds, scores, scaler, SIM_FEATURES)
+    
+    # Inspector
     st.markdown("<hr>", unsafe_allow_html=True)
     render_inspector(test_df, preds, scores, normal_stats, SIM_FEATURES, SIM_ROOT_CAUSE_LIBRARY, thresholds, "Frame")
+    
+    # Heatmap
     st.markdown("<hr>", unsafe_allow_html=True)
     render_heatmap(test_df, SIM_FEATURES, key_suffix="_sim")
+    # ============================================================
+# Footer & Attribution
+# ============================================================
 
 st.markdown("<div style='text-align:center;color:#57606a;font-size:0.78rem;padding:20px 0 8px 0;border-top:1px solid #1a2a6c;margin-top:16px;'>MIRA — Mission Intelligence &amp; Risk Analyzer &nbsp;|&nbsp; OneClassSVM &nbsp;|&nbsp; OPS-SAT dataset © ESA &nbsp;|&nbsp; Application built with <b style='color:#3b5de7;'>IBM Bob</b></div>", unsafe_allow_html=True)
