@@ -282,11 +282,44 @@ def load_opssat_dataset(path: str = "dataset.csv"):
     except Exception as e:
         return None, [], str(e)
 
-def risk_level(score: float, score_min: float, score_max: float) -> str:
-    norm = (score - score_min) / max(score_max - score_min, 1e-9)
-    if norm < 0.25: return "HIGH"
-    if norm < 0.50: return "MEDIUM"
+def calculate_risk_thresholds(scores, preds):
+    """
+    Calibrate risk levels using the distribution of detected anomalies.
+    Lower OneClassSVM scores indicate stronger deviation from nominal behaviour.
+    """
+    anomaly_scores = scores[preds == -1]
+
+    if len(anomaly_scores) == 0:
+        return {
+            "critical": None,
+            "high": None,
+            "medium": None
+        }
+
+    return {
+        "critical": float(np.percentile(anomaly_scores, 20)),
+        "high": float(np.percentile(anomaly_scores, 50)),
+        "medium": float(np.percentile(anomaly_scores, 80))
+    }
+
+
+def risk_level(score: float, thresholds: dict) -> str:
+    """
+    Convert OneClassSVM decision score into an operational risk level.
+    Lower scores indicate stronger anomaly deviation.
+    """
+
+    if thresholds["critical"] is None:
+        return "LOW"
+
+    if score <= thresholds["critical"]:
+        return "HIGH"
+
+    if score <= thresholds["high"]:
+        return "MEDIUM"
+
     return "LOW"
+
 
 def train_ocsvm(df: pd.DataFrame, features: list, nu: float, kernel: str, gamma: str):
     scaler = StandardScaler()
@@ -324,7 +357,7 @@ def explain_anomaly(row: pd.Series, normal_stats: pd.DataFrame, features: list, 
             desc = f"Value {val:.4g} deviates {z:.2f}σ from the nominal mean ({mean:.4g})."
         causes.append({"feature": feat, "value": val, "z_score": z, "severity": severity, "title": title, "desc": desc})
     causes.sort(key=lambda c: c["z_score"], reverse=True)
-    return causes
+    return causes[:3]
 
 def make_radar_chart(row: pd.Series, normal_stats: pd.DataFrame, features: list):
     short = [f[:18] + "…" if len(f) > 18 else f for f in features]
@@ -390,11 +423,13 @@ def inject_anomalies(df: pd.DataFrame, anomaly_rate: float = 0.08) -> pd.DataFra
     return df
 
 def render_alert_banner(n_anomalies, risk_counts):
-    has_high = risk_counts["HIGH"] > 0
+    has_high = risk_counts.get("HIGH", 0) > 0
     if has_high:
-        st.markdown(f"<div class='alert-banner'>🚨 RED ALERT — {risk_counts['HIGH']} HIGH-RISK anomal{'y' if risk_counts['HIGH']==1 else 'ies'} detected! Immediate mission review recommended.</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='alert-banner'>🚨 CRITICAL ALERT — {risk_counts['HIGH']} HIGH-RISK anomal{'y' if risk_counts['HIGH']==1 else 'ies'} detected! Immediate mission review required.</div>", unsafe_allow_html=True)
+    elif risk_counts.get("MEDIUM", 0) > 0:
+        st.markdown(f"<div class='warn-banner'>⚠️ HIGH PRIORITY — {risk_counts['MEDIUM']} MEDIUM-RISK anomal{'y' if risk_counts['MEDIUM']==1 else 'ies'} detected. Immediate investigation recommended.</div>", unsafe_allow_html=True)
     elif n_anomalies > 0:
-        st.markdown(f"<div class='warn-banner'>⚠️ CAUTION — {n_anomalies} anomal{'y' if n_anomalies==1 else 'ies'} detected at MEDIUM/LOW risk. Monitor closely.</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='warn-banner'>⚠️ CAUTION — {n_anomalies} anomal{'y' if n_anomalies==1 else 'ies'} detected at LOW risk. Monitor closely.</div>", unsafe_allow_html=True)
     else:
         st.markdown("<div class='normal-banner'>✅ ALL SYSTEMS NOMINAL — No anomalies detected.</div>", unsafe_allow_html=True)
 
@@ -404,11 +439,11 @@ def render_kpi_row(preds, scores, risk_counts):
     n_normal = int((preds == 1).sum())
     anom_pct = n_anomalies / n_total * 100
     m1, m2, m3, m4, m5 = st.columns(5)
-    m1.metric("📊 Frames Analysed", f"{n_total:,}")
+    m1.metric("📊 Segments Analysed", f"{n_total:,}")
     m2.metric("✅ Normal", f"{n_normal:,}")
     m3.metric("⚠️ Anomalies", f"{n_anomalies:,}", delta=f"{anom_pct:.1f}%", delta_color="inverse")
-    m4.metric("🔴 High Risk", risk_counts["HIGH"], delta_color="inverse")
-    m5.metric("🟡 Medium Risk", risk_counts["MEDIUM"], delta_color="off")
+    m4.metric("🔴 High Risk", risk_counts.get("HIGH", 0), delta_color="inverse")
+    m5.metric("🟡 Medium Risk", risk_counts.get("MEDIUM", 0), delta_color="off")
 
 def render_charts(test_df, preds, scores, scaler, features, x_labels=None):
     col_left, col_right = st.columns([3, 2])
@@ -419,19 +454,18 @@ def render_charts(test_df, preds, scores, scaler, features, x_labels=None):
         st.markdown("<div class='section-title'>🔵 PCA Feature Space</div>", unsafe_allow_html=True)
         st.plotly_chart(make_pca_scatter(test_df, preds, scaler, features), use_container_width=True, key="pca")
 
-def render_inspector(test_df, preds, scores, normal_stats, features, root_cause_lib, frame_label_prefix="Frame"):
-    st.markdown("<div class='section-title'>🔬 Root-Cause Anomaly Inspector</div>", unsafe_allow_html=True)
+def render_inspector(test_df, preds, scores, normal_stats, features, root_cause_lib, thresholds, frame_label_prefix="Segment"):
+    st.markdown("<div class='section-title'>🔬 AI Mission Anomaly Investigator</div>", unsafe_allow_html=True)
     anomaly_indices = np.where(preds == -1)[0]
-    score_min, score_max = scores.min(), scores.max()
     if len(anomaly_indices) == 0:
         st.info("No anomalies to inspect.")
         return
-    frame_labels = {int(i): f"{frame_label_prefix} {i:04d}  —  " + risk_level(scores[i], score_min, score_max) + "  risk  (score: {:.3f})".format(scores[i]) for i in anomaly_indices}
+    frame_labels = {int(i): f"{frame_label_prefix} {i:04d}  —  " + risk_level(scores[i], thresholds) + "  risk  (score: {:.3f})".format(scores[i]) for i in anomaly_indices}
     sorted_indices = sorted(anomaly_indices, key=lambda i: scores[i])
     selected_frame = st.selectbox("Select anomaly frame to inspect:", options=sorted_indices, format_func=lambda i: frame_labels[i])
     row = test_df.iloc[selected_frame]
     s = scores[selected_frame]
-    rlevel = risk_level(s, score_min, score_max)
+    rlevel = risk_level(s, thresholds)
     causes = explain_anomaly(row, normal_stats, features, root_cause_lib)
     badge_color = {"HIGH": "#ef4444", "MEDIUM": "#f59e0b", "LOW": "#22c55e"}[rlevel]
     frame_css = "red-alert" if rlevel == "HIGH" else ""
@@ -519,19 +553,12 @@ if IS_REAL:
     channels = raw_df["channel"].unique().tolist() if "channel" in raw_df.columns else ["—"]
     ch_str = ", ".join(str(c) for c in channels[:6]) + ("…" if len(channels) > 6 else "")
     st.markdown(f"<div class='dataset-info'><b>Dataset:</b> ESA OPS-SAT-1 Telemetry &nbsp;|&nbsp; <b>Total segments:</b> {len(raw_df):,} &nbsp;|&nbsp; <b>Nominal training segments:</b> {n_train_nominal:,} &nbsp;|&nbsp; <b>Features used:</b> {len(feature_cols)} &nbsp;|&nbsp; <b>Channels:</b> {ch_str}</div>", unsafe_allow_html=True)
-   if "train" in raw_df.columns and "anomaly" in raw_df.columns:
-    train_df = raw_df[
-        (raw_df["train"] == 1) &
-        (raw_df["anomaly"] == 0)
-    ].copy()
-
-    test_df = raw_df[
-        raw_df["train"] == 0
-    ].copy()
-else:
-    train_df = raw_df.copy()
-    test_df = raw_df.copy()
-    
+    if "train" in raw_df.columns and "anomaly" in raw_df.columns:
+        train_df = raw_df[(raw_df["train"] == 1) & (raw_df["anomaly"] == 0)].copy()
+        test_df = raw_df[raw_df["train"] == 0].copy()
+    else:
+        train_df = raw_df.copy()
+        test_df = raw_df.copy()
     if len(train_df) == 0:
         st.error("No nominal training segments found (train=1, anomaly=0). Check your dataset.")
         st.stop()
@@ -540,12 +567,14 @@ else:
     with st.spinner("🔍 Scanning all telemetry segments…"):
         preds, scores = run_predict(model, scaler, test_df, feature_cols)
     normal_stats = train_df[feature_cols].describe().loc[["mean", "std"]]
-    score_min, score_max = scores.min(), scores.max()
     n_anomalies = int((preds == -1).sum())
+    # Calibrate operational risk levels from detected anomaly scores
+    thresholds = calculate_risk_thresholds(scores, preds)
     risk_counts = {"HIGH": 0, "MEDIUM": 0, "LOW": 0}
     for s_val, p in zip(scores, preds):
         if p == -1:
-            risk_counts[risk_level(s_val, score_min, score_max)] += 1
+            risk = risk_level(s_val, thresholds)
+            risk_counts[risk] += 1
     has_labels = "anomaly" in test_df.columns
     if has_labels:
         true_labels = test_df["anomaly"].values
@@ -553,31 +582,32 @@ else:
         tp = int(((preds == -1) & (true_labels == 1)).sum())
         fp = int(((preds == -1) & (true_labels == 0)).sum())
         fn = int(((preds == 1) & (true_labels == 1)).sum())
+        tn = int(((preds == 1) & (true_labels == 0)).sum())
         precision = tp / max(tp + fp, 1)
         recall = tp / max(tp + fn, 1)
-        accuracy = accuracy_score(true_labels, preds_binary)
-        f1 = f1_score(true_labels, preds_binary)
+        f1 = 2 * precision * recall / max(precision + recall, 1e-9)
+        accuracy = accuracy_score(true_labels, (preds == -1).astype(int))
+        f1_score_val = f1_score(true_labels, (preds == -1).astype(int))
     render_alert_banner(n_anomalies, risk_counts)
     render_kpi_row(preds, scores, risk_counts)
     if has_labels:
-    st.markdown("<hr>", unsafe_allow_html=True)
-    st.markdown("<div class='section-title'>✅ Ground-Truth Validation</div>", unsafe_allow_html=True)
-    g1, g2, g3, g4 = st.columns(4)
-    g1.metric("📋 True Anomalies", n_true_anom)
-    g2.metric("🎯 True Positives", tp)
-    g3.metric("🎯 Precision", f"{precision:.2%}")
-    g4.metric("🔁 Recall", f"{recall:.2%}")
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    g5, g6, g7 = st.columns(3)
-    g5.metric("📊 Accuracy", f"{accuracy:.2%}")
-    g6.metric("🎯 F1 Score", f"{f1:.2%}")
-    g7.metric("📋 Confusion Matrix", f"TP: {tp}, FP: {fp}, FN: {fn}")
+        st.markdown("<hr>", unsafe_allow_html=True)
+        st.markdown("<div class='section-title'>✅ Ground-Truth Validation</div>", unsafe_allow_html=True)
+        g1, g2, g3, g4 = st.columns(4)
+        g1.metric("📋 True Anomalies", n_true_anom)
+        g2.metric("🎯 True Positives", tp)
+        g3.metric("🎯 Precision", f"{precision:.2%}")
+        g4.metric("🔁 Recall", f"{recall:.2%}")
+        st.markdown("<br>", unsafe_allow_html=True)
+        g5, g6, g7 = st.columns(3)
+        g5.metric("📊 Accuracy", f"{accuracy:.2%}")
+        g6.metric("🎯 F1 Score", f"{f1:.2%}")
+        g7.metric("📋 Confusion Matrix", f"TN: {tn}, FP: {fp}, FN: {fn}, TP: {tp}")
     st.markdown("<hr>", unsafe_allow_html=True)
     x_labels = test_df["segment"].tolist() if "segment" in test_df.columns else None
     render_charts(test_df, preds, scores, scaler, feature_cols, x_labels)
     st.markdown("<hr>", unsafe_allow_html=True)
-    render_inspector(test_df, preds, scores, normal_stats, feature_cols, OPSSAT_ROOT_CAUSE_LIBRARY, "Segment")
+    render_inspector(test_df, preds, scores, normal_stats, feature_cols, OPSSAT_ROOT_CAUSE_LIBRARY, thresholds, "Segment")
     st.markdown("<hr>", unsafe_allow_html=True)
     render_heatmap(test_df, feature_cols, key_suffix="_real")
 else:
@@ -590,18 +620,20 @@ else:
         model, scaler = train_ocsvm(normal_df, SIM_FEATURES, nu=nu_val, kernel=kernel_val, gamma=gamma_val)
     with st.spinner("🔍 Scanning synthetic telemetry frames…"):
         preds, scores = run_predict(model, scaler, test_df, SIM_FEATURES)
-    score_min, score_max = scores.min(), scores.max()
     n_anomalies = int((preds == -1).sum())
+    # Calibrate operational risk levels from detected anomaly scores
+    thresholds = calculate_risk_thresholds(scores, preds)
     risk_counts = {"HIGH": 0, "MEDIUM": 0, "LOW": 0}
     for s_val, p in zip(scores, preds):
         if p == -1:
-            risk_counts[risk_level(s_val, score_min, score_max)] += 1
+            risk = risk_level(s_val, thresholds)
+            risk_counts[risk] += 1
     render_alert_banner(n_anomalies, risk_counts)
     render_kpi_row(preds, scores, risk_counts)
     st.markdown("<hr>", unsafe_allow_html=True)
     render_charts(test_df, preds, scores, scaler, SIM_FEATURES)
     st.markdown("<hr>", unsafe_allow_html=True)
-    render_inspector(test_df, preds, scores, normal_stats, SIM_FEATURES, SIM_ROOT_CAUSE_LIBRARY, "Frame")
+    render_inspector(test_df, preds, scores, normal_stats, SIM_FEATURES, SIM_ROOT_CAUSE_LIBRARY, thresholds, "Frame")
     st.markdown("<hr>", unsafe_allow_html=True)
     render_heatmap(test_df, SIM_FEATURES, key_suffix="_sim")
 
