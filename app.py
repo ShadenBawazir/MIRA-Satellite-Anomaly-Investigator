@@ -512,4 +512,5 @@ def render_inspector(test_df, preds, scores, normal_stats, features, root_cause_
         if causes:
             st.markdown("**Identified Root Causes:**")
             for c in causes:
-                css_cl
+                css_cls = ("cause-high" if c["severity"] == "high" else "cause-med" if c["severity"] == "medium" else "cause-low")
+                st.markdown(f"<div class='cause-card {css_cls}'><div class='cause-title'>{c['title']}</div><b>{c['feature']}</b>: {c['value']:.4g} (z-score: {c['z_score']:.2f})<br>{c['desc']}</div>", unsafe_allow
