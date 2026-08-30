@@ -695,14 +695,4 @@ with st.sidebar:
         st.caption(f"**Kernel:** {kernel_val}  |  **Nu:** {nu_val}  |  **Gamma:** {gamma_val}")
     else:
         st.markdown(
-            "<div style='background:#1a1202;border:1px solid #f59e0b;border-radius:8px;"
-            "padding:10px 14px;margin-bottom:10px;'>"
-            "<span style='color:#fcd34d;font-weight:700;font-size:0.85rem;'>🔬 MISSION SIMULATION</span><br>"
-            "<span style='color:#57606a;font-size:0.78rem;line-height:1.6;'>"
-            "All values are <b>synthetic</b>. No real satellite data.<br>"
-            "Adjust parameters freely for demonstration.</span>"
-            "</div>",
-            unsafe_allow_html=True,
-        )
-        st.markdown("### 🤖 Model Hyperparameters")
-        nu_val     = st
+            "<div style='background:#1a1202;border:1px solid #f59e0
