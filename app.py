@@ -401,7 +401,8 @@ def inject_anomalies(df: pd.DataFrame, anomaly_rate: float = 0.08) -> pd.DataFra
         direction = rng.choice([-1, 1])
         df.at[i, col] += direction * magnitude * df[col].std()
     return df
-    def render_alert_banner(n_anomalies, risk_counts):
+
+def render_alert_banner(n_anomalies, risk_counts):
     has_high = risk_counts.get("HIGH", 0) > 0
     if has_high:
         st.markdown(f"<div class='alert-banner'>🚨 CRITICAL ALERT — {risk_counts['HIGH']} HIGH-RISK anomal{'y' if risk_counts['HIGH']==1 else 'ies'} detected! Immediate mission review required.</div>", unsafe_allow_html=True)
@@ -481,7 +482,8 @@ def render_heatmap(df, features, key_suffix=""):
                                height=max(260, min(60 * len(features), 600)), margin=dict(l=20, r=20, t=10, b=20),
                                coloraxis_colorbar=dict(tickfont=dict(color="#b8cef7"), title_font=dict(color="#b8cef7")))
         st.plotly_chart(fig_heat, use_container_width=True, key=f"heatmap{key_suffix}")
-        with st.sidebar:
+
+with st.sidebar:
     st.markdown("## 🛰️ MIRA Controls")
     st.markdown("<hr>", unsafe_allow_html=True)
     analysis_mode = st.radio("Analysis Mode", options=["🛰️ Real OPS-SAT Data", "🔬 Mission Simulation"], index=0)
@@ -518,7 +520,8 @@ if not run_btn:
         sub = "Configure the simulation parameters and click"
     st.markdown(f"<div style='text-align:center;padding:60px 20px;color:#57606a;'><div style='font-size:4rem;margin-bottom:16px;'>🌌</div><h3 style='color:#3b5de7;'>Awaiting Mission Start</h3><p>{sub} <b style='color:#7eb8f7;'>🚀 Run MIRA Analysis</b> to begin satellite monitoring.</p></div>", unsafe_allow_html=True)
     st.stop()
-    if IS_REAL:
+
+if IS_REAL:
     st.markdown("<div style='text-align:center;margin-bottom:8px;'><span class='mode-badge-real'>🛰️ REAL OPS-SAT DATA — ESA OPS-SAT-1 Mission Telemetry</span></div>", unsafe_allow_html=True)
     with st.spinner("📂 Loading OPS-SAT dataset…"):
         raw_df, feature_cols, load_err = load_opssat_dataset("dataset.csv")
@@ -545,7 +548,6 @@ if not run_btn:
         preds, scores = run_predict(model, scaler, test_df, feature_cols)
     normal_stats = train_df[feature_cols].describe().loc[["mean", "std"]]
     n_anomalies = int((preds == -1).sum())
-    # Calibrate operational risk levels from detected anomaly scores
     thresholds = calculate_risk_thresholds(scores, preds)
     risk_counts = {"HIGH": 0, "MEDIUM": 0, "LOW": 0}
     for s_val, p in zip(scores, preds):
@@ -598,7 +600,6 @@ else:
     with st.spinner("🔍 Scanning synthetic telemetry frames…"):
         preds, scores = run_predict(model, scaler, test_df, SIM_FEATURES)
     n_anomalies = int((preds == -1).sum())
-    # Calibrate operational risk levels from detected anomaly scores
     thresholds = calculate_risk_thresholds(scores, preds)
     risk_counts = {"HIGH": 0, "MEDIUM": 0, "LOW": 0}
     for s_val, p in zip(scores, preds):
