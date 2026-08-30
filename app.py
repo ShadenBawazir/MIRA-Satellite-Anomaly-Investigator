@@ -518,12 +518,19 @@ if IS_REAL:
     channels = raw_df["channel"].unique().tolist() if "channel" in raw_df.columns else ["—"]
     ch_str = ", ".join(str(c) for c in channels[:6]) + ("…" if len(channels) > 6 else "")
     st.markdown(f"<div class='dataset-info'><b>Dataset:</b> ESA OPS-SAT-1 Telemetry &nbsp;|&nbsp; <b>Total segments:</b> {len(raw_df):,} &nbsp;|&nbsp; <b>Nominal training segments:</b> {n_train_nominal:,} &nbsp;|&nbsp; <b>Features used:</b> {len(feature_cols)} &nbsp;|&nbsp; <b>Channels:</b> {ch_str}</div>", unsafe_allow_html=True)
-    if "train" in raw_df.columns and "anomaly" in raw_df.columns:
-        train_df = raw_df[(raw_df["train"] == 1) & (raw_df["anomaly"] == 0)].copy()
-        test_df = raw_df.copy()
-    else:
-        train_df = raw_df.copy()
-        test_df = raw_df.copy()
+   if "train" in raw_df.columns and "anomaly" in raw_df.columns:
+    train_df = raw_df[
+        (raw_df["train"] == 1) &
+        (raw_df["anomaly"] == 0)
+    ].copy()
+
+    test_df = raw_df[
+        raw_df["train"] == 0
+    ].copy()
+else:
+    train_df = raw_df.copy()
+    test_df = raw_df.copy()
+    
     if len(train_df) == 0:
         st.error("No nominal training segments found (train=1, anomaly=0). Check your dataset.")
         st.stop()
