@@ -503,6 +503,7 @@ def render_inspector(test_df, preds, scores, normal_stats, features, root_cause_
     s = scores[selected_frame]
     rlevel = risk_level(s, thresholds)
     causes = explain_anomaly(row, normal_stats, features, root_cause_lib)
+    recommendation = generate_mission_recommendation(causes)
     badge_color = {"HIGH": "#ef4444", "MEDIUM": "#f59e0b", "LOW": "#22c55e"}[rlevel]
     frame_css = "red-alert" if rlevel == "HIGH" else ""
     st.markdown(f"<div class='{frame_css}' style='background:#080f2e;border:2px solid {badge_color};border-radius:12px;padding:16px 20px;margin-bottom:12px;'><span style='color:{badge_color};font-weight:700;font-size:1rem;'>{'🚨' if rlevel=='HIGH' else '⚠️' if rlevel=='MEDIUM' else '🔵'} {frame_label_prefix} {selected_frame:04d} — {rlevel} RISK</span><span style='color:#57606a;font-size:0.88rem;margin-left:16px;'>Decision score: {s:.4f}</span></div>", unsafe_allow_html=True)
@@ -511,5 +512,4 @@ def render_inspector(test_df, preds, scores, normal_stats, features, root_cause_
         if causes:
             st.markdown("**Identified Root Causes:**")
             for c in causes:
-                css_cls = ("cause-high" if c["severity"] == "high" else "cause-med" if c["severity"] == "medium" else "cause-low")
-                st.markdown(f"<div class='cause-card {css
+                css_cl
