@@ -1419,7 +1419,7 @@ def render_heatmap(df, features, key_suffix=""):
             margin=dict(l=20, r=20, t=10, b=20),
             coloraxis_colorbar=dict(
                 tickfont=dict(color="#b8cef7"),
-                titlefont=dict(color="#b8cef7"),
+                title_font=dict(color="#b8cef7"),
             ),
         )
 
