@@ -2252,49 +2252,61 @@ with st.sidebar:
     )
 
 
-# =============================================================================
-# HEADER
-# =============================================================================
-
+# ─── Header ──────────────────────────────────────────────────────────────────
 st.markdown(
-
     """
-    <div style='text-align:center;
-                padding:24px 0 8px 0;'>
+    <div style="
+        text-align: center;
+        padding: 20px 0 12px 0;
+        margin: 0;
+    ">
 
-        <span style='font-size:2.8rem;'>
+        <div style="
+            font-size: 3rem;
+            line-height: 1;
+            margin-bottom: 8px;
+        ">
             🛰️
-        </span>
+        </div>
 
-        <h1 style='font-size:2.5rem;
-                   margin:4px 0 0 0;
-                   color:#7eb8f7;
-                   letter-spacing:2px;'>
-
+        <div style="
+            font-size: 2.8rem;
+            font-weight: 800;
+            color: #7eb8f7;
+            letter-spacing: 4px;
+            line-height: 1.1;
+            margin: 0;
+        ">
             MIRA
+        </div>
 
-        </h1>
+        <div style="
+            color: #7eb8f7;
+            font-size: 0.95rem;
+            font-weight: 600;
+            letter-spacing: 3px;
+            margin-top: 8px;
+            line-height: 1.5;
+        ">
+            MISSION INTELLIGENCE &amp; RISK ANALYZER
+        </div>
 
-        <p style='color:#57606a;
-                  font-size:1rem;
-                  letter-spacing:4px;
-                  margin-top:2px;'>
-
-            MISSION INTELLIGENCE &amp;
-            RISK ANALYZER
-
-        </p>
+        <div style="
+            width: 90px;
+            height: 2px;
+            background: #3b5de7;
+            margin: 14px auto 0 auto;
+            border-radius: 2px;
+            box-shadow: 0 0 10px rgba(59, 93, 231, 0.6);
+        ">
+        </div>
 
     </div>
     """,
-
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
-st.markdown(
-    "<hr>",
-    unsafe_allow_html=True
-)
+st.markdown("<hr>", unsafe_allow_html=True)
 
 
 # =============================================================================
