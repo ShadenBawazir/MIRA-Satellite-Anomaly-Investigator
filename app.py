@@ -723,7 +723,7 @@ with st.expander("📊 Full Telemetry Heatmap", expanded=False):
         height=300,
         margin=dict(l=20, r=20, t=10, b=20),
         coloraxis_colorbar=dict(tickfont=dict(color="#b8cef7"),
-                                titlefont=dict(color="#b8cef7")),
+                                title_font=dict(color="#b8cef7")),
     )
     st.plotly_chart(fig_heat, use_container_width=True, key="heatmap")
 
