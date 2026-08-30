@@ -7,6 +7,7 @@ import plotly.express as px
 from sklearn.svm import OneClassSVM
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
 
 st.set_page_config(
     page_title="MIRA — Satellite Anomaly Detector",
@@ -554,6 +555,8 @@ else:
         fn = int(((preds == 1) & (true_labels == 1)).sum())
         precision = tp / max(tp + fp, 1)
         recall = tp / max(tp + fn, 1)
+        accuracy = accuracy_score(true_labels, preds_binary)
+        f1 = f1_score(true_labels, preds_binary)
     render_alert_banner(n_anomalies, risk_counts)
     render_kpi_row(preds, scores, risk_counts)
     if has_labels:
