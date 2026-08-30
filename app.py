@@ -283,43 +283,23 @@ def load_opssat_dataset(path: str = "dataset.csv"):
         return None, [], str(e)
 
 def calculate_risk_thresholds(scores, preds):
-    """
-    Calibrate risk levels using the distribution of detected anomalies.
-    Lower OneClassSVM scores indicate stronger deviation from nominal behaviour.
-    """
     anomaly_scores = scores[preds == -1]
-
     if len(anomaly_scores) == 0:
-        return {
-            "critical": None,
-            "high": None,
-            "medium": None
-        }
-
+        return {"critical": None, "high": None, "medium": None}
     return {
         "critical": float(np.percentile(anomaly_scores, 20)),
         "high": float(np.percentile(anomaly_scores, 50)),
         "medium": float(np.percentile(anomaly_scores, 80))
     }
 
-
-def risk_level(score: float, thresholds: dict) -> str:
-    """
-    Convert OneClassSVM decision score into an operational risk level.
-    Lower scores indicate stronger anomaly deviation.
-    """
-
+def risk_level(score, thresholds):
     if thresholds["critical"] is None:
         return "LOW"
-
     if score <= thresholds["critical"]:
         return "HIGH"
-
     if score <= thresholds["high"]:
         return "MEDIUM"
-
     return "LOW"
-
 
 def train_ocsvm(df: pd.DataFrame, features: list, nu: float, kernel: str, gamma: str):
     scaler = StandardScaler()
