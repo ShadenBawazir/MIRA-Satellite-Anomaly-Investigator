@@ -3,15 +3,12 @@ MIRA — Mission Intelligence & Risk Analyzer
 Satellite anomaly detection powered by OneClassSVM.
 
 Supports two analysis modes:
-  1. REAL OPS-SAT DATA  — trained on the ESA OPS-SAT-1 telemetry dataset
-  2. MISSION SIMULATION — fully synthetic telemetry for demonstration
+  1. REAL OPS-SAT DATA  — trained on the ESA OPS-SAT-1 telemetry dataset (dataset.csv)
+  2. MISSION SIMULATION — fully synthetic telemetry for interactive demonstration
 
-Dataset credit:
-ESA OPS-SAT-1 mission telemetry, published via Zenodo.
-
-IBM Bob assisted in building this application:
-app architecture, UI design, and ML pipeline.
-IBM Bob did not create the dataset.
+Dataset credit: ESA OPS-SAT-1 mission telemetry, published via Zenodo.
+IBM Bob assisted in building this application (app architecture,
+UI design, and ML pipeline). IBM Bob did not create the dataset.
 """
 
 import os
@@ -20,14 +17,13 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
-
 from sklearn.svm import OneClassSVM
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 
 
 # =============================================================================
-# PAGE CONFIGURATION
+# PAGE CONFIG
 # =============================================================================
 
 st.set_page_config(
@@ -39,15 +35,13 @@ st.set_page_config(
 
 
 # =============================================================================
-# SPACE THEME
+# DARK SPACE THEME
 # =============================================================================
 
 SPACE_CSS = """
 <style>
 
-html, body,
-[data-testid="stAppViewContainer"],
-[data-testid="stApp"] {
+html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
     background-color: #020818 !important;
     color: #e0e8ff !important;
 }
@@ -198,7 +192,7 @@ hr {
     }
 
     100% {
-        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.0);
         background: #1a0808;
     }
 }
@@ -323,6 +317,43 @@ hr {
     margin-bottom: 10px;
 }
 
+.mira-header {
+    text-align: center;
+    padding: 20px 0 12px 0;
+}
+
+.mira-satellite {
+    font-size: 3rem;
+    line-height: 1;
+    margin-bottom: 8px;
+}
+
+.mira-title {
+    font-size: 2.8rem;
+    font-weight: 800;
+    color: #7eb8f7;
+    letter-spacing: 4px;
+    line-height: 1.1;
+    margin: 0;
+}
+
+.mira-subtitle {
+    color: #7eb8f7;
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 3px;
+    margin-top: 8px;
+    line-height: 1.5;
+}
+
+.mira-line {
+    width: 90px;
+    height: 2px;
+    background: #3b5de7;
+    margin: 14px auto 0 auto;
+    border-radius: 2px;
+}
+
 </style>
 
 <div class="starfield" id="stars"></div>
@@ -330,15 +361,14 @@ hr {
 <div class="rocket-track">🚀</div>
 
 <script>
-
 (function() {
-
     var sf = document.getElementById('stars');
 
-    if (!sf) return;
+    if (!sf) {
+        return;
+    }
 
     for (var i = 0; i < 120; i++) {
-
         var s = document.createElement('div');
 
         s.className = 'star';
@@ -355,11 +385,8 @@ hr {
         ].join(';');
 
         sf.appendChild(s);
-
     }
-
 })();
-
 </script>
 """
 
@@ -381,14 +408,9 @@ OPSSAT_META_COLS = {
 }
 
 
-# =============================================================================
-# OPS-SAT ROOT CAUSE LIBRARY
-# =============================================================================
-
 OPSSAT_ROOT_CAUSE_LIBRARY = {
 
     "mean": {
-
         "high": (
             "📉 Abnormal Signal Mean",
             "The mean telemetry value deviates significantly from nominal. "
@@ -396,24 +418,20 @@ OPSSAT_ROOT_CAUSE_LIBRARY = {
             "or a change in the physical process being monitored. "
             "Cross-check the raw channel readings."
         ),
-
         "medium": (
             "📊 Elevated Mean Drift",
             "A moderate mean offset is present. Could reflect gradual sensor "
-            "degradation or a slow environmental change. "
-            "Trend-monitoring is recommended."
+            "degradation or a slow environmental change. Trend-monitoring is recommended."
         ),
     },
 
     "var": {
-
         "high": (
             "🔀 Critical Variance Spike",
             "Signal variance has increased dramatically, indicating high-frequency "
             "noise, oscillation, or instability in the telemetry channel. "
             "Check for electrical interference or component failure."
         ),
-
         "medium": (
             "〰️ Elevated Signal Variance",
             "Above-nominal variance detected. May be caused by thermal cycling, "
@@ -423,14 +441,11 @@ OPSSAT_ROOT_CAUSE_LIBRARY = {
     },
 
     "std": {
-
         "high": (
             "📡 High Signal Dispersion",
-            "Standard deviation is far outside training norms. "
-            "Indicates erratic telemetry behaviour possibly caused by ADC saturation, "
-            "noise floor change, or sensor fault."
+            "Standard deviation far outside training norms. Indicates erratic telemetry "
+            "behaviour possibly caused by ADC saturation, noise floor change, or sensor fault."
         ),
-
         "medium": (
             "〰️ Moderate Signal Dispersion",
             "Mildly elevated standard deviation. Monitor for escalation; "
@@ -439,14 +454,11 @@ OPSSAT_ROOT_CAUSE_LIBRARY = {
     },
 
     "smooth10_n_peaks": {
-
         "high": (
             "🏔️ Abnormal Peak Count (10-pt smooth)",
             "Number of peaks in the lightly-smoothed signal is anomalous. "
-            "Suggests unusual oscillation cycles or spike bursts not present "
-            "in nominal operation."
+            "Suggests unusual oscillation cycles or spike bursts not present in nominal operation."
         ),
-
         "medium": (
             "🏔️ Elevated Peak Count (10-pt smooth)",
             "More peaks than expected in the 10-point smoothed signal. "
@@ -455,14 +467,11 @@ OPSSAT_ROOT_CAUSE_LIBRARY = {
     },
 
     "smooth20_n_peaks": {
-
         "high": (
             "🏔️ Abnormal Peak Count (20-pt smooth)",
-            "Highly smoothed signal still shows anomalous peak count, "
-            "suggesting persistent low-frequency oscillations or structural "
-            "signal changes."
+            "Highly smoothed signal still shows anomalous peak count, suggesting "
+            "persistent low-frequency oscillations or structural signal changes."
         ),
-
         "medium": (
             "🏔️ Elevated Peak Count (20-pt smooth)",
             "Above-nominal peaks in the 20-point smoothed signal. "
@@ -471,29 +480,25 @@ OPSSAT_ROOT_CAUSE_LIBRARY = {
     },
 
     "diff_peaks": {
-
         "high": (
             "🔺 Anomalous First-Difference Peak Count",
             "The first-difference series has an abnormal number of peaks, "
             "indicating rapid reversals or high-frequency toggling in the raw signal. "
             "Possible relay chatter or aggressive control loop oscillation."
         ),
-
         "medium": (
             "🔺 Elevated First-Difference Peaks",
-            "Moderately high rate-of-change reversals. Could reflect increased "
+            "Moderately high rate of change reversals. Could reflect increased "
             "noise on the measurement channel or unstable closed-loop control."
         ),
     },
 
     "diff2_peaks": {
-
         "high": (
             "🔻 Anomalous Second-Difference Peak Count",
             "Acceleration of the signal has an abnormal peak count, "
             "suggesting jerky, non-smooth behaviour inconsistent with nominal operations."
         ),
-
         "medium": (
             "🔻 Elevated Second-Difference Peaks",
             "Moderate spike in second-difference peaks. "
@@ -502,32 +507,26 @@ OPSSAT_ROOT_CAUSE_LIBRARY = {
     },
 
     "diff_var": {
-
         "high": (
             "⚡ High First-Difference Variance",
             "The variance of the signal's first difference is critically elevated. "
-            "The signal is changing rapidly and erratically. "
-            "Possible sources include electrical transients, spontaneous sensor reset, "
-            "or actuator anomaly."
+            "The signal is changing rapidly and erratically. Possible source: "
+            "electrical transient, spontaneous sensor reset, or actuator anomaly."
         ),
-
         "medium": (
             "⚡ Elevated Rate-of-Change Variance",
-            "First-difference variance is above the nominal baseline. "
-            "The signal is more volatile than expected. "
-            "Monitor for further escalation."
+            "First-difference variance above nominal baseline. "
+            "The signal is more volatile than expected. Monitor for further escalation."
         ),
     },
 
     "diff2_var": {
-
         "high": (
             "🌊 High Second-Difference Variance",
-            "The second-difference variance is anomalously high, "
-            "indicating that signal acceleration is erratic. "
-            "This points to highly unstable or jerky dynamics."
+            "The second-difference variance is anomalously high, indicating "
+            "the signal acceleration is erratic. This points to highly unstable "
+            "or jerky dynamics in the measured subsystem."
         ),
-
         "medium": (
             "🌊 Elevated Signal Acceleration Variance",
             "Moderate increase in second-difference variance. "
@@ -536,46 +535,39 @@ OPSSAT_ROOT_CAUSE_LIBRARY = {
     },
 
     "gaps_squared": {
-
         "high": (
             "🕳️ Anomalous Sampling Gap Structure",
             "The squared-gap metric deviates significantly, indicating irregular "
-            "or burst-mode sampling. Possible causes include data packet loss, "
-            "timing-system fault, or ground-station scheduling irregularity."
+            "or burst-mode sampling. Possible causes: data packet loss, timing "
+            "system fault, or ground-station scheduling irregularity."
         ),
-
         "medium": (
             "🕳️ Irregular Sampling Gaps",
-            "Moderate deviation in sampling gap structure. "
-            "Review the onboard data recorder for buffer overflows or missed downlink windows."
+            "Moderate deviation in sampling gap structure. Review onboard data "
+            "recorder for buffer overflows or missed downlink windows."
         ),
     },
 
     "len_weighted": {
-
         "high": (
             "📏 Anomalous Length-Weighted Metric",
-            "Length-weighted feature is significantly off-nominal. "
+            "Length-weighted feature significantly off-nominal. "
             "May reflect an unusually long or short telemetry segment combined "
             "with abnormal signal amplitude."
         ),
-
         "medium": (
             "📏 Elevated Length-Weighted Deviation",
-            "Moderate length-weighted anomaly. "
-            "Review segment boundaries for correctness."
+            "Moderate length-weighted anomaly. Review segment boundaries for correctness."
         ),
     },
 
     "var_div_duration": {
-
         "high": (
             "⏱️ Critical Variance-per-Second",
             "Variance normalised by duration is critically high, indicating "
-            "that the signal is generating noise or oscillation at an unsustainable "
-            "rate relative to the measurement window."
+            "the signal is generating noise or oscillation at an unsustainable "
+            "rate relative to the measurement window length."
         ),
-
         "medium": (
             "⏱️ Elevated Variance Rate",
             "Above-nominal variance-per-second detected. "
@@ -584,14 +576,12 @@ OPSSAT_ROOT_CAUSE_LIBRARY = {
     },
 
     "var_div_len": {
-
         "high": (
             "📐 Critical Variance-per-Sample",
-            "Per-sample variance is critically elevated. "
-            "Each individual sample contributes far more variance than during "
-            "nominal operations, indicating sensor noise degradation or data corruption."
+            "Per-sample variance is critically elevated. Each individual sample "
+            "is contributing far more variance than during nominal operations. "
+            "This is a strong indicator of sensor noise floor degradation or data corruption."
         ),
-
         "medium": (
             "📐 Elevated Per-Sample Variance",
             "Moderate per-sample variance elevation. "
@@ -602,11 +592,10 @@ OPSSAT_ROOT_CAUSE_LIBRARY = {
 
 
 # =============================================================================
-# SIMULATION FEATURES
+# SYNTHETIC SIMULATION FEATURES
 # =============================================================================
 
 SIM_FEATURES = [
-
     "Battery Voltage (V)",
     "Solar Panel Output (W)",
     "CPU Temperature (°C)",
@@ -615,25 +604,18 @@ SIM_FEATURES = [
     "Thruster Fuel (%)",
     "Memory Usage (%)",
     "Downlink Rate (Mbps)",
-
 ]
 
-
-# =============================================================================
-# SIMULATION ROOT CAUSE LIBRARY
-# =============================================================================
 
 SIM_ROOT_CAUSE_LIBRARY = {
 
     "Battery Voltage (V)": {
-
         "high": (
             "⚡ Critical Power Failure",
-            "Battery voltage is severely out of range. "
-            "Possible causes include charging circuit fault, deep discharge event, "
-            "or cell degradation. Recommend immediate power-system diagnostics."
+            "Battery voltage is severely out of range. Possible causes: "
+            "charging circuit fault, deep discharge event, or cell degradation. "
+            "Recommend immediate power-system diagnostics."
         ),
-
         "medium": (
             "🔋 Battery Stress",
             "Voltage deviation detected. Could indicate partial cell failure "
@@ -642,63 +624,54 @@ SIM_ROOT_CAUSE_LIBRARY = {
     },
 
     "Solar Panel Output (W)": {
-
         "high": (
             "☀️ Solar Array Fault",
-            "Output has dropped critically. Potential causes include panel shadowing, "
+            "Output has dropped critically. Potential causes: panel shadowing, "
             "micrometeorite strike, or deployment mechanism failure. "
             "Verify panel orientation telemetry."
         ),
-
         "medium": (
             "🌑 Reduced Solar Efficiency",
-            "Minor output degradation. May be caused by panel degradation "
+            "Minor output degradation. May be caused by panel degradation over time "
             "or off-nominal sun-pointing angle. Review attitude control data."
         ),
     },
 
     "CPU Temperature (°C)": {
-
         "high": (
             "🌡️ Thermal Runaway Risk",
-            "CPU temperature exceeds the safe operating range. "
-            "Possible causes include thermal-control-system failure, heater malfunction, "
-            "or excessive computational load. Initiate thermal safe mode."
+            "CPU temperature exceeds safe operating range. Possible causes: "
+            "thermal control system failure, heater malfunction, or excessive "
+            "computational load. Initiate thermal safe mode."
         ),
-
         "medium": (
             "🔥 CPU Thermal Stress",
-            "Temperature is approaching the upper limit. "
-            "Could result from high task scheduling load or partial heat-pipe degradation. "
+            "Temperature approaching upper limit. Could result from high task "
+            "scheduling load or partial heat-pipe degradation. "
             "Reduce non-critical processes."
         ),
     },
 
     "Signal Strength (dBm)": {
-
         "high": (
             "📡 Communication Link Loss",
-            "Signal strength is critically low. Possible causes include antenna pointing error, "
-            "RF-chain hardware fault, or atmospheric interference. "
-            "Check ground-station alignment."
+            "Signal strength critically low. Potential causes: antenna pointing "
+            "error, hardware fault in RF chain, or atmospheric interference. "
+            "Check ground station alignment."
         ),
-
         "medium": (
             "📶 Signal Degradation",
-            "Sub-nominal signal detected. May be caused by partial antenna obstruction "
-            "or transponder aging. Log for trend analysis."
+            "Sub-nominal signal detected. May be caused by partial antenna "
+            "obstruction or transponder aging. Log for trend analysis."
         ),
     },
 
     "Attitude Error (deg)": {
-
         "high": (
             "🔄 Attitude Control System Failure",
-            "Large attitude error indicates possible reaction-wheel failure, "
-            "gyroscope drift, or magnetic-torquer anomaly. "
-            "Satellite stability is at risk."
+            "Large attitude error indicates possible reaction wheel failure, "
+            "gyroscope drift, or magnetic torquer anomaly. Satellite stability is at risk."
         ),
-
         "medium": (
             "↔️ Attitude Drift",
             "Moderate pointing error detected. Could be due to disturbance torques "
@@ -707,51 +680,45 @@ SIM_ROOT_CAUSE_LIBRARY = {
     },
 
     "Thruster Fuel (%)": {
-
         "high": (
             "🛑 Fuel Depletion Alert",
-            "Fuel level is critically low or anomalous. "
-            "Potential propellant leak or incorrect fuel-gauge calibration. "
+            "Fuel level critically low or anomalous reading detected. "
+            "Potential propellant leak or incorrect fuel gauge calibration. "
             "Suspend maneuvers and audit fuel budget."
         ),
-
         "medium": (
             "⛽ Propellant Concern",
-            "Fuel consumption rate is above nominal. "
-            "Review recent maneuver history and thruster valve cycling for micro-leaks."
+            "Fuel consumption rate is above nominal. Review recent maneuver "
+            "history and thruster valve cycling for micro-leaks."
         ),
     },
 
     "Memory Usage (%)": {
-
         "high": (
             "💾 Memory Overflow Risk",
-            "Memory utilization is critically high. "
-            "Could cause data loss, process crashes, or safe-mode entry. "
-            "Flush non-critical buffers and dump telemetry immediately."
+            "Memory utilization critically high. Could cause data loss, "
+            "process crashes, or safe-mode entry. Flush non-critical buffers "
+            "and dump telemetry immediately."
         ),
-
         "medium": (
             "🗄️ High Memory Utilization",
-            "Memory is nearing capacity. "
-            "Review active payload data buffering and clear stale logs to prevent overflow."
+            "Memory nearing capacity. Review active payload data buffering "
+            "and clear stale logs to prevent overflow."
         ),
     },
 
     "Downlink Rate (Mbps)": {
-
         "high": (
             "📉 Downlink Failure",
-            "Downlink rate is severely degraded or zero. "
-            "Possible causes include modem fault, transponder overheating, "
-            "or ground-station tracking loss. Switch to backup downlink channel."
+            "Downlink rate severely degraded or zero. Possible modem fault, "
+            "transponder overheating, or ground station tracking loss. "
+            "Switch to backup downlink channel."
         ),
-
         "medium": (
             "📊 Reduced Downlink Throughput",
-            "Throughput is below nominal. "
-            "May be caused by link-margin erosion or ground-station scheduling conflicts. "
-            "Re-optimize contact-window planning."
+            "Throughput below nominal. May be caused by link margin erosion "
+            "or scheduling conflicts at the ground station. "
+            "Re-optimize contact window plan."
         ),
     },
 }
@@ -762,10 +729,17 @@ SIM_ROOT_CAUSE_LIBRARY = {
 # =============================================================================
 
 @st.cache_data(show_spinner=False)
-def load_opssat_dataset(path="dataset.csv"):
+def load_opssat_dataset(path: str = "dataset.csv"):
+    """
+    Load the OPS-SAT dataset from CSV.
+
+    Returns:
+        df
+        feature_cols
+        error_msg
+    """
 
     if not os.path.exists(path):
-
         return (
             None,
             [],
@@ -773,7 +747,6 @@ def load_opssat_dataset(path="dataset.csv"):
         )
 
     try:
-
         df = pd.read_csv(path)
 
         feature_cols = [
@@ -787,7 +760,6 @@ def load_opssat_dataset(path="dataset.csv"):
         ]
 
         if not feature_cols:
-
             return (
                 None,
                 [],
@@ -797,20 +769,19 @@ def load_opssat_dataset(path="dataset.csv"):
         return df, feature_cols, None
 
     except Exception as e:
-
         return None, [], str(e)
 
 
 # =============================================================================
-# RISK CALCULATION
+# SHARED HELPERS
 # =============================================================================
 
-def risk_level(score, score_min, score_max):
+def risk_level(score: float, score_min: float, score_max: float) -> str:
+    """
+    Map decision score to LOW / MEDIUM / HIGH risk.
+    """
 
-    norm = (
-        (score - score_min)
-        / max(score_max - score_min, 1e-9)
-    )
+    norm = (score - score_min) / max(score_max - score_min, 1e-9)
 
     if norm < 0.25:
         return "HIGH"
@@ -821,17 +792,16 @@ def risk_level(score, score_min, score_max):
     return "LOW"
 
 
-# =============================================================================
-# MODEL TRAINING
-# =============================================================================
-
-def train_ocsvm(df, features, nu, kernel, gamma):
-
+def train_ocsvm(
+    df: pd.DataFrame,
+    features: list,
+    nu: float,
+    kernel: str,
+    gamma: str
+):
     scaler = StandardScaler()
 
-    X = scaler.fit_transform(
-        df[features]
-    )
+    X = scaler.fit_transform(df[features])
 
     model = OneClassSVM(
         nu=nu,
@@ -844,15 +814,13 @@ def train_ocsvm(df, features, nu, kernel, gamma):
     return model, scaler
 
 
-# =============================================================================
-# PREDICTION
-# =============================================================================
-
-def run_predict(model, scaler, df, features):
-
-    X = scaler.transform(
-        df[features]
-    )
+def run_predict(
+    model,
+    scaler,
+    df: pd.DataFrame,
+    features: list
+):
+    X = scaler.transform(df[features])
 
     preds = model.predict(X)
 
@@ -861,16 +829,12 @@ def run_predict(model, scaler, df, features):
     return preds, scores
 
 
-# =============================================================================
-# ROOT CAUSE EXPLANATION
-# =============================================================================
-
 def explain_anomaly(
-    row,
-    normal_stats,
-    features,
-    root_cause_lib
-):
+    row: pd.Series,
+    normal_stats: pd.DataFrame,
+    features: list,
+    root_cause_lib: dict
+) -> list:
 
     causes = []
 
@@ -885,15 +849,12 @@ def explain_anomaly(
         z = abs(val - mean) / max(std, 1e-9)
 
         if z > 3.0:
-
             severity = "high"
 
         elif z > 2.0:
-
             severity = "medium"
 
         else:
-
             continue
 
         lib_entry = (
@@ -926,24 +887,17 @@ def explain_anomaly(
             desc = (
                 f"Value {val:.4g} deviates {z:.2f}σ "
                 f"from the nominal mean ({mean:.4g}). "
-                f"No specific root-cause rule is defined for this feature. "
-                f"Manual telemetry inspection is recommended."
+                "No specific root-cause rule defined for this feature; "
+                "manual inspection of the telemetry channel is recommended."
             )
 
         causes.append({
-
             "feature": feat,
-
             "value": val,
-
             "z_score": z,
-
             "severity": severity,
-
             "title": title,
-
             "desc": desc,
-
         })
 
     causes.sort(
@@ -959,9 +913,9 @@ def explain_anomaly(
 # =============================================================================
 
 def make_radar_chart(
-    row,
-    normal_stats,
-    features
+    row: pd.Series,
+    normal_stats: pd.DataFrame,
+    features: list
 ):
 
     short = [
@@ -972,18 +926,13 @@ def make_radar_chart(
     cats = short + [short[0]]
 
     z_scores = [
-
         abs(
-            row[f]
-            - normal_stats.loc["mean", f]
-        )
-        / max(
+            row[f] - normal_stats.loc["mean", f]
+        ) / max(
             normal_stats.loc["std", f],
             1e-9
         )
-
         for f in features
-
     ]
 
     z_closed = z_scores + [z_scores[0]]
@@ -992,42 +941,28 @@ def make_radar_chart(
 
     fig.add_trace(
         go.Scatterpolar(
-
             r=[1] * (len(features) + 1),
-
             theta=cats,
-
             fill="toself",
-
             name="Normal Boundary",
-
             line=dict(
                 color="#3b5de7",
                 dash="dash"
             ),
-
             fillcolor="rgba(59,93,231,0.1)",
-
         )
     )
 
     fig.add_trace(
         go.Scatterpolar(
-
             r=z_closed,
-
             theta=cats,
-
             fill="toself",
-
             name="Current Reading",
-
             line=dict(
                 color="#ef4444"
             ),
-
             fillcolor="rgba(239,68,68,0.2)",
-
         )
     )
 
@@ -1038,9 +973,7 @@ def make_radar_chart(
             bgcolor="#0b1640",
 
             radialaxis=dict(
-
                 visible=True,
-
                 range=[
                     0,
                     max(
@@ -1048,19 +981,13 @@ def make_radar_chart(
                         max(z_scores) + 1
                     )
                 ],
-
                 gridcolor="#1e3a8a",
-
                 color="#7eb8f7",
-
             ),
 
             angularaxis=dict(
-
                 gridcolor="#1e3a8a",
-
                 color="#7eb8f7",
-
             ),
         ),
 
@@ -1086,7 +1013,6 @@ def make_radar_chart(
         ),
 
         height=360,
-
     )
 
     return fig
@@ -1103,13 +1029,8 @@ def make_score_timeline(
 ):
 
     colors = [
-
-        "#ef4444"
-        if p == -1
-        else "#22c55e"
-
+        "#ef4444" if p == -1 else "#22c55e"
         for p in preds
-
     ]
 
     x = (
@@ -1122,25 +1043,18 @@ def make_score_timeline(
 
     fig.add_trace(
         go.Scatter(
-
             x=x,
-
             y=scores,
-
             mode="lines+markers",
-
             line=dict(
                 color="#3b5de7",
                 width=1.5
             ),
-
             marker=dict(
                 color=colors,
                 size=5
             ),
-
             name="Decision Score",
-
         )
     )
 
@@ -1188,10 +1102,10 @@ def make_score_timeline(
 # =============================================================================
 
 def make_pca_scatter(
-    df,
+    df: pd.DataFrame,
     preds,
     scaler,
-    features
+    features: list
 ):
 
     X = scaler.transform(
@@ -1213,66 +1127,47 @@ def make_pca_scatter(
     fig = go.Figure()
 
     for label, color in [
-
         ("Normal", "#3b5de7"),
-
         ("Anomaly", "#ef4444")
-
     ]:
 
-        mask = np.array(
-            [
-                l == label
-                for l in labels
-            ]
-        )
+        mask = np.array([
+            l == label
+            for l in labels
+        ])
 
         fig.add_trace(
             go.Scatter(
-
                 x=X2d[mask, 0],
-
                 y=X2d[mask, 1],
-
                 mode="markers",
-
                 name=label,
-
                 marker=dict(
                     color=color,
                     size=6,
                     opacity=0.75
                 ),
-
             )
         )
 
     fig.update_layout(
 
         xaxis=dict(
-
             title=(
                 f"PC1 "
                 f"({pca.explained_variance_ratio_[0] * 100:.1f}%)"
             ),
-
             gridcolor="#0d1f4a",
-
             color="#7eb8f7",
-
         ),
 
         yaxis=dict(
-
             title=(
                 f"PC2 "
                 f"({pca.explained_variance_ratio_[1] * 100:.1f}%)"
             ),
-
             gridcolor="#0d1f4a",
-
             color="#7eb8f7",
-
         ),
 
         paper_bgcolor="#020818",
@@ -1296,7 +1191,6 @@ def make_pca_scatter(
             bgcolor="#050d2e",
             bordercolor="#1e3a8a"
         ),
-
     )
 
     return fig
@@ -1306,7 +1200,9 @@ def make_pca_scatter(
 # SIMULATION DATA
 # =============================================================================
 
-def generate_normal_data(n=300):
+def generate_normal_data(
+    n: int = 300
+) -> pd.DataFrame:
 
     rng = np.random.default_rng(42)
 
@@ -1335,14 +1231,13 @@ def generate_normal_data(n=300):
 
         "Downlink Rate (Mbps)":
             rng.normal(50.0, 3.0, n),
-
     })
 
 
 def inject_anomalies(
-    df,
-    anomaly_rate=0.08
-):
+    df: pd.DataFrame,
+    anomaly_rate: float = 0.08
+) -> pd.DataFrame:
 
     rng = np.random.default_rng(7)
 
@@ -1386,7 +1281,7 @@ def inject_anomalies(
 
 
 # =============================================================================
-# ALERT BANNER
+# DISPLAY: ALERT BANNER
 # =============================================================================
 
 def render_alert_banner(
@@ -1401,52 +1296,47 @@ def render_alert_banner(
     if has_high:
 
         st.markdown(
-
             f"""
             <div class='alert-banner'>
-                🚨 RED ALERT — {risk_counts["HIGH"]} HIGH-RISK
-                anomal{'y' if risk_counts["HIGH"] == 1 else 'ies'}
+                🚨 RED ALERT — {risk_counts["HIGH"]}
+                HIGH-RISK
+                anomal{"y" if risk_counts["HIGH"] == 1 else "ies"}
                 detected!
                 Immediate mission review recommended.
             </div>
             """,
-
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
 
     elif n_anomalies > 0:
 
         st.markdown(
-
             f"""
             <div class='warn-banner'>
                 ⚠️ CAUTION — {n_anomalies}
-                anomal{'y' if n_anomalies == 1 else 'ies'}
+                anomal{"y" if n_anomalies == 1 else "ies"}
                 detected at MEDIUM/LOW risk.
                 Monitor closely.
             </div>
             """,
-
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
 
     else:
 
         st.markdown(
-
             """
             <div class='normal-banner'>
                 ✅ ALL SYSTEMS NOMINAL —
                 No anomalies detected.
             </div>
             """,
-
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
 
 
 # =============================================================================
-# KPI ROW
+# DISPLAY: KPI ROW
 # =============================================================================
 
 def render_kpi_row(
@@ -1504,7 +1394,7 @@ def render_kpi_row(
 
 
 # =============================================================================
-# CHARTS
+# DISPLAY: CHARTS
 # =============================================================================
 
 def render_charts(
@@ -1532,17 +1422,13 @@ def render_charts(
         )
 
         st.plotly_chart(
-
             make_score_timeline(
                 scores,
                 preds,
                 x_labels
             ),
-
             use_container_width=True,
-
             key="timeline"
-
         )
 
     with col_right:
@@ -1557,23 +1443,19 @@ def render_charts(
         )
 
         st.plotly_chart(
-
             make_pca_scatter(
                 test_df,
                 preds,
                 scaler,
                 features
             ),
-
             use_container_width=True,
-
             key="pca"
-
         )
 
 
 # =============================================================================
-# ANOMALY INSPECTOR
+# DISPLAY: ROOT CAUSE INSPECTOR
 # =============================================================================
 
 def render_inspector(
@@ -1600,7 +1482,6 @@ def render_inspector(
     )[0]
 
     score_min = scores.min()
-
     score_max = scores.max()
 
     if len(anomaly_indices) == 0:
@@ -1614,15 +1495,11 @@ def render_inspector(
     frame_labels = {
 
         int(i):
-
-        (
             f"{frame_label_prefix} {i:04d} — "
             f"{risk_level(scores[i], score_min, score_max)} "
             f"risk (score: {scores[i]:.3f})"
-        )
 
         for i in anomaly_indices
-
     }
 
     sorted_indices = sorted(
@@ -1638,7 +1515,6 @@ def render_inspector(
 
         format_func=lambda i:
             frame_labels[i],
-
     )
 
     row = test_df.iloc[
@@ -1656,25 +1532,16 @@ def render_inspector(
     )
 
     causes = explain_anomaly(
-
         row,
-
         normal_stats,
-
         features,
-
         root_cause_lib
-
     )
 
     badge_color = {
-
         "HIGH": "#ef4444",
-
         "MEDIUM": "#f59e0b",
-
         "LOW": "#22c55e"
-
     }[rlevel]
 
     frame_css = (
@@ -1684,7 +1551,6 @@ def render_inspector(
     )
 
     st.markdown(
-
         f"""
         <div class='{frame_css}'
              style='background:#080f2e;
@@ -1697,9 +1563,9 @@ def render_inspector(
                          font-weight:700;
                          font-size:1rem;'>
 
-                {'🚨' if rlevel == 'HIGH'
-                 else '⚠️' if rlevel == 'MEDIUM'
-                 else '🔵'}
+                {"🚨" if rlevel == "HIGH"
+                 else "⚠️" if rlevel == "MEDIUM"
+                 else "🔵"}
 
                 {frame_label_prefix}
                 {selected_frame:04d}
@@ -1711,16 +1577,13 @@ def render_inspector(
                          font-size:0.88rem;
                          margin-left:16px;'>
 
-                Decision score:
-                {s:.4f}
+                Decision score: {s:.4f}
 
             </span>
 
         </div>
         """,
-
-        unsafe_allow_html=True
-
+        unsafe_allow_html=True,
     )
 
     detail_col, radar_col = st.columns(
@@ -1738,47 +1601,40 @@ def render_inspector(
             for c in causes:
 
                 css_cls = (
-
                     "cause-high"
                     if c["severity"] == "high"
-
-                    else "cause-med"
+                    else
+                    "cause-med"
                     if c["severity"] == "medium"
-
-                    else "cause-low"
-
+                    else
+                    "cause-low"
                 )
 
                 st.markdown(
-
                     f"""
                     <div class='cause-card {css_cls}'>
 
                         <div class='cause-title'>
-                            {c['title']}
+                            {c["title"]}
                         </div>
 
-                        <b>{c['feature']}</b>:
-                        {c['value']:.4g}
+                        <b>{c["feature"]}</b>:
+                        {c["value"]:.4g}
 
-                        (z-score:
-                        {c['z_score']:.2f})
+                        (z-score: {c["z_score"]:.2f})
 
                         <br>
 
-                        {c['desc']}
+                        {c["desc"]}
 
                     </div>
                     """,
-
-                    unsafe_allow_html=True
-
+                    unsafe_allow_html=True,
                 )
 
         else:
 
             st.markdown(
-
                 """
                 <div class='cause-card cause-low'>
 
@@ -1786,21 +1642,19 @@ def render_inspector(
                         ℹ️ Subtle Multi-Feature Deviation
                     </div>
 
-                    No single feature exceeds the
-                    2σ threshold. The anomaly is
-                    driven by a combination of minor
-                    deviations across multiple channels.
-                    Review all features in the radar
-                    chart for compound effects.
+                    No single feature exceeds the 2σ threshold.
+                    The anomaly is driven by a combination of
+                    minor deviations across multiple channels.
+                    Review all features in the radar chart
+                    for compound effects.
 
                 </div>
                 """,
-
-                unsafe_allow_html=True
+                unsafe_allow_html=True,
             )
 
         st.markdown(
-            "<br>**Feature Values vs. Nominal Baseline:**",
+            "<br><b>Feature Values vs. Nominal Baseline:</b>",
             unsafe_allow_html=True
         )
 
@@ -1826,24 +1680,19 @@ def render_inspector(
             )
 
             tbl_rows.append({
-
                 "Feature": f,
-
                 "Value": round(
                     float(val),
                     4
                 ),
-
                 "Nominal Mean": round(
                     float(mean),
                     4
                 ),
-
                 "Δ (σ)": round(
                     float(z),
                     2
-                ),
-
+                )
             })
 
         tbl = pd.DataFrame(
@@ -1864,22 +1713,18 @@ def render_inspector(
         )
 
         st.plotly_chart(
-
             make_radar_chart(
                 row,
                 normal_stats,
                 features
             ),
-
             use_container_width=True,
-
             key=f"radar_{selected_frame}"
-
         )
 
 
 # =============================================================================
-# TELEMETRY HEATMAP
+# DISPLAY: HEATMAP
 # =============================================================================
 
 def render_heatmap(
@@ -1898,16 +1743,11 @@ def render_heatmap(
         ].copy()
 
         heat_norm = (
-
-            heat_df
-            - heat_df.min()
-
+            heat_df - heat_df.min()
         ) / (
-
             heat_df.max()
             - heat_df.min()
             + 1e-9
-
         )
 
         fig_heat = px.imshow(
@@ -1915,19 +1755,14 @@ def render_heatmap(
             heat_norm.T,
 
             labels=dict(
-
                 x="Segment",
-
                 y="Feature",
-
                 color="Normalised Value"
-
             ),
 
             color_continuous_scale="RdBu_r",
 
             aspect="auto",
-
         )
 
         fig_heat.update_layout(
@@ -1963,20 +1798,14 @@ def render_heatmap(
 
                 titlefont=dict(
                     color="#b8cef7"
-                ),
-
+                )
             ),
-
         )
 
         st.plotly_chart(
-
             fig_heat,
-
             use_container_width=True,
-
             key=f"heatmap{key_suffix}"
-
         )
 
 
@@ -2010,7 +1839,6 @@ with st.sidebar:
             "Choose between real ESA OPS-SAT-1 "
             "telemetry or synthetic simulation."
         ),
-
     )
 
     IS_REAL = analysis_mode.startswith(
@@ -2025,7 +1853,6 @@ with st.sidebar:
     if IS_REAL:
 
         st.markdown(
-
             """
             <div style='background:#0a1a0a;
                         border:1px solid #22c55e;
@@ -2062,9 +1889,7 @@ with st.sidebar:
 
             </div>
             """,
-
-            unsafe_allow_html=True
-
+            unsafe_allow_html=True,
         )
 
         nu_val = 0.22
@@ -2082,7 +1907,6 @@ with st.sidebar:
     else:
 
         st.markdown(
-
             """
             <div style='background:#1a1202;
                         border:1px solid #f59e0b;
@@ -2116,8 +1940,7 @@ with st.sidebar:
 
             </div>
             """,
-
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
 
         st.markdown(
@@ -2125,47 +1948,34 @@ with st.sidebar:
         )
 
         nu_val = st.slider(
-
             "Nu (outlier fraction)",
-
             0.01,
             0.50,
             0.08,
             0.01,
-
             help=(
-                "Upper bound on training "
-                "anomaly fraction."
-            ),
-
+                "Upper bound on training anomaly fraction."
+            )
         )
 
         kernel_val = st.selectbox(
-
             "Kernel",
-
             [
                 "rbf",
                 "linear",
                 "poly",
                 "sigmoid"
             ],
-
             index=0
-
         )
 
         gamma_val = st.selectbox(
-
             "Gamma",
-
             [
                 "scale",
                 "auto"
             ],
-
             index=0
-
         )
 
         st.markdown(
@@ -2178,25 +1988,19 @@ with st.sidebar:
         )
 
         n_frames = st.slider(
-
             "Training frames",
-
             100,
             1000,
             300,
             50
-
         )
 
         anomaly_pct = st.slider(
-
             "Injected anomaly %",
-
             1,
             30,
             8,
             1
-
         )
 
     st.markdown(
@@ -2205,11 +2009,8 @@ with st.sidebar:
     )
 
     run_btn = st.button(
-
         "🚀 Run MIRA Analysis",
-
         use_container_width=True
-
     )
 
     st.markdown(
@@ -2218,19 +2019,18 @@ with st.sidebar:
     )
 
     st.markdown(
-
         """
         <div style='color:#57606a;
                     font-size:0.78rem;
-                    line-height:1.6'>
+                    line-height:1.6;'>
 
             MIRA uses <b>OneClassSVM</b>
             trained on nominal telemetry.
 
             <br>
 
-            Anomalies are frames where
-            the satellite's behaviour deviates
+            Anomalies are frames where the
+            satellite's behaviour deviates
             beyond the learned decision boundary.
 
             <br><br>
@@ -2247,66 +2047,41 @@ with st.sidebar:
 
         </div>
         """,
-
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
 
-# ─── Header ──────────────────────────────────────────────────────────────────
+# =============================================================================
+# HEADER
+# =============================================================================
+
 st.markdown(
     """
-    <div style="
-        text-align: center;
-        padding: 20px 0 12px 0;
-        margin: 0;
-    ">
+    <div class="mira-header">
 
-        <div style="
-            font-size: 3rem;
-            line-height: 1;
-            margin-bottom: 8px;
-        ">
+        <div class="mira-satellite">
             🛰️
         </div>
 
-        <div style="
-            font-size: 2.8rem;
-            font-weight: 800;
-            color: #7eb8f7;
-            letter-spacing: 4px;
-            line-height: 1.1;
-            margin: 0;
-        ">
+        <div class="mira-title">
             MIRA
         </div>
 
-        <div style="
-            color: #7eb8f7;
-            font-size: 0.95rem;
-            font-weight: 600;
-            letter-spacing: 3px;
-            margin-top: 8px;
-            line-height: 1.5;
-        ">
+        <div class="mira-subtitle">
             MISSION INTELLIGENCE &amp; RISK ANALYZER
         </div>
 
-        <div style="
-            width: 90px;
-            height: 2px;
-            background: #3b5de7;
-            margin: 14px auto 0 auto;
-            border-radius: 2px;
-            box-shadow: 0 0 10px rgba(59, 93, 231, 0.6);
-        ">
-        </div>
+        <div class="mira-line"></div>
 
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-st.markdown("<hr>", unsafe_allow_html=True)
+st.markdown(
+    "<hr>",
+    unsafe_allow_html=True
+)
 
 
 # =============================================================================
@@ -2332,7 +2107,6 @@ if not run_btn:
         )
 
     st.markdown(
-
         f"""
         <div style='text-align:center;
                     padding:60px 20px;
@@ -2340,9 +2114,7 @@ if not run_btn:
 
             <div style='font-size:4rem;
                         margin-bottom:16px;'>
-
                 🌌
-
             </div>
 
             <h3 style='color:#3b5de7;'>
@@ -2350,7 +2122,6 @@ if not run_btn:
             </h3>
 
             <p>
-
                 {sub}
 
                 <b style='color:#7eb8f7;'>
@@ -2358,13 +2129,11 @@ if not run_btn:
                 </b>
 
                 to begin satellite monitoring.
-
             </p>
 
         </div>
         """,
-
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     st.stop()
@@ -2377,7 +2146,6 @@ if not run_btn:
 if IS_REAL:
 
     st.markdown(
-
         """
         <div style='text-align:center;
                     margin-bottom:8px;'>
@@ -2391,8 +2159,7 @@ if IS_REAL:
 
         </div>
         """,
-
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     with st.spinner(
@@ -2412,7 +2179,6 @@ if IS_REAL:
         )
 
         st.markdown(
-
             """
             <div class='cause-card cause-high'>
 
@@ -2427,72 +2193,52 @@ if IS_REAL:
 
                 <br><br>
 
-                The file should contain
-                OPS-SAT-1 telemetry data with
-                columns such as:
+                The file should be the
+                OPS-SAT-1 telemetry dataset
+                with columns such as:
 
                 <br>
 
                 <code>
                 segment, anomaly, train, channel,
-                sampling, duration, len, mean, var, std
+                sampling, duration, len, mean, var, std, …
                 </code>
 
             </div>
             """,
-
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
 
         st.stop()
 
-    n_train_nominal = (
-
-        int(
-
-            (
-                (raw_df["train"] == 1)
-                &
-                (raw_df["anomaly"] == 0)
-            ).sum()
-
-        )
-
-        if (
-            "train" in raw_df.columns
-            and
-            "anomaly" in raw_df.columns
-        )
-
-        else len(raw_df)
-
-    )
+    n_train_nominal = int(
+        (
+            (raw_df["train"] == 1)
+            &
+            (raw_df["anomaly"] == 0)
+        ).sum()
+    ) if (
+        "train" in raw_df.columns
+        and
+        "anomaly" in raw_df.columns
+    ) else len(raw_df)
 
     channels = (
-
-        raw_df["channel"]
-        .unique()
-        .tolist()
-
+        raw_df["channel"].unique().tolist()
         if "channel" in raw_df.columns
-
         else ["—"]
-
     )
 
     ch_str = (
-
         ", ".join(
             str(c)
             for c in channels[:6]
         )
-
-        + ("…" if len(channels) > 6 else "")
-
+        +
+        ("…" if len(channels) > 6 else "")
     )
 
     st.markdown(
-
         f"""
         <div class='dataset-info'>
 
@@ -2521,8 +2267,7 @@ if IS_REAL:
 
         </div>
         """,
-
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     if (
@@ -2556,21 +2301,16 @@ if IS_REAL:
         st.stop()
 
     with st.spinner(
-        "🤖 Training OneClassSVM on nominal OPS-SAT segments…"
+        "🤖 Training OneClassSVM "
+        "on nominal OPS-SAT segments…"
     ):
 
         model, scaler = train_ocsvm(
-
             train_df,
-
             feature_cols,
-
             nu=0.22,
-
             kernel="rbf",
-
             gamma="scale"
-
         )
 
     with st.spinner(
@@ -2578,15 +2318,10 @@ if IS_REAL:
     ):
 
         preds, scores = run_predict(
-
             model,
-
             scaler,
-
             test_df,
-
             feature_cols
-
         )
 
     normal_stats = (
@@ -2606,13 +2341,9 @@ if IS_REAL:
     )
 
     risk_counts = {
-
         "HIGH": 0,
-
         "MEDIUM": 0,
-
         "LOW": 0
-
     }
 
     for s_val, p in zip(
@@ -2638,8 +2369,7 @@ if IS_REAL:
     if has_labels:
 
         true_labels = (
-            test_df["anomaly"]
-            .values
+            test_df["anomaly"].values
         )
 
         n_true_anom = int(
@@ -2671,13 +2401,11 @@ if IS_REAL:
         )
 
         precision = (
-            tp
-            / max(tp + fp, 1)
+            tp / max(tp + fp, 1)
         )
 
         recall = (
-            tp
-            / max(tp + fn, 1)
+            tp / max(tp + fn, 1)
         )
 
     render_alert_banner(
@@ -2699,13 +2427,11 @@ if IS_REAL:
         )
 
         st.markdown(
-
             """
             <div class='section-title'>
                 ✅ Ground-Truth Validation
             </div>
             """,
-
             unsafe_allow_html=True
         )
 
@@ -2737,30 +2463,18 @@ if IS_REAL:
     )
 
     x_labels = (
-
         test_df["segment"].tolist()
-
-        if "segment"
-        in test_df.columns
-
+        if "segment" in test_df.columns
         else None
-
     )
 
     render_charts(
-
         test_df,
-
         preds,
-
         scores,
-
         scaler,
-
         feature_cols,
-
         x_labels
-
     )
 
     st.markdown(
@@ -2769,21 +2483,13 @@ if IS_REAL:
     )
 
     render_inspector(
-
         test_df,
-
         preds,
-
         scores,
-
         normal_stats,
-
         feature_cols,
-
         OPSSAT_ROOT_CAUSE_LIBRARY,
-
         "Segment"
-
     )
 
     st.markdown(
@@ -2792,13 +2498,9 @@ if IS_REAL:
     )
 
     render_heatmap(
-
         test_df,
-
         feature_cols,
-
         key_suffix="_real"
-
     )
 
 
@@ -2809,7 +2511,6 @@ if IS_REAL:
 else:
 
     st.markdown(
-
         """
         <div style='text-align:center;
                     margin-bottom:8px;'>
@@ -2823,8 +2524,7 @@ else:
 
         </div>
         """,
-
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     with st.spinner(
@@ -2836,41 +2536,29 @@ else:
         )
 
         test_df = inject_anomalies(
-
             normal_df.copy(),
-
-            anomaly_rate=(
-                anomaly_pct / 100
-            )
-
+            anomaly_rate=anomaly_pct / 100
         )
 
         normal_stats = (
-
             normal_df
             .describe()
             .loc[
                 ["mean", "std"]
             ]
-
         )
 
     with st.spinner(
-        "🤖 Training OneClassSVM on synthetic nominal data…"
+        "🤖 Training OneClassSVM "
+        "on synthetic nominal data…"
     ):
 
         model, scaler = train_ocsvm(
-
             normal_df,
-
             SIM_FEATURES,
-
             nu=nu_val,
-
             kernel=kernel_val,
-
             gamma=gamma_val
-
         )
 
     with st.spinner(
@@ -2878,15 +2566,10 @@ else:
     ):
 
         preds, scores = run_predict(
-
             model,
-
             scaler,
-
             test_df,
-
             SIM_FEATURES
-
         )
 
     score_min = scores.min()
@@ -2898,13 +2581,9 @@ else:
     )
 
     risk_counts = {
-
         "HIGH": 0,
-
         "MEDIUM": 0,
-
         "LOW": 0
-
     }
 
     for s_val, p in zip(
@@ -2923,21 +2602,14 @@ else:
             ] += 1
 
     render_alert_banner(
-
         n_anomalies,
-
         risk_counts
-
     )
 
     render_kpi_row(
-
         preds,
-
         scores,
-
         risk_counts
-
     )
 
     st.markdown(
@@ -2946,17 +2618,11 @@ else:
     )
 
     render_charts(
-
         test_df,
-
         preds,
-
         scores,
-
         scaler,
-
         SIM_FEATURES
-
     )
 
     st.markdown(
@@ -2965,21 +2631,13 @@ else:
     )
 
     render_inspector(
-
         test_df,
-
         preds,
-
         scores,
-
         normal_stats,
-
         SIM_FEATURES,
-
         SIM_ROOT_CAUSE_LIBRARY,
-
         "Frame"
-
     )
 
     st.markdown(
@@ -2988,13 +2646,9 @@ else:
     )
 
     render_heatmap(
-
         test_df,
-
         SIM_FEATURES,
-
         key_suffix="_sim"
-
     )
 
 
@@ -3003,7 +2657,6 @@ else:
 # =============================================================================
 
 st.markdown(
-
     """
     <div style='text-align:center;
                 color:#57606a;
@@ -3012,17 +2665,13 @@ st.markdown(
                 border-top:1px solid #1a2a6c;
                 margin-top:16px;'>
 
-        MIRA — Mission Intelligence &amp;
-        Risk Analyzer
-
+        MIRA — Mission Intelligence &amp; Risk Analyzer
         &nbsp;|&nbsp;
 
         OneClassSVM
-
         &nbsp;|&nbsp;
 
         OPS-SAT dataset © ESA
-
         &nbsp;|&nbsp;
 
         Application built with
@@ -3032,6 +2681,5 @@ st.markdown(
 
     </div>
     """,
-
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
