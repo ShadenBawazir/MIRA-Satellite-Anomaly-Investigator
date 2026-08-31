@@ -496,7 +496,7 @@ def get_watsonx_model():
     )
 
     model = ModelInference(
-        model_id="ibm/granite-3-8b-instruct",
+        model_id="ibm/granite-3-2b-instruct",  # ← تم التعديل هنا
         credentials=credentials,
         project_id=project_id
     )
