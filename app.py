@@ -496,7 +496,7 @@ def get_watsonx_model():
     )
 
     model = ModelInference(
-        model_id="ibm/granite-13b-chat-v2",  # ← النموذج المتاح في أوروبا
+        model_id="ibm/granite-13b-chat-v2",
         credentials=credentials,
         project_id=project_id
     )
@@ -504,36 +504,17 @@ def get_watsonx_model():
     return model
 
 
-def generate_ai_mission_brief(
-    mission_status,
-    anomaly_count,
-    primary_cause,
-    subsystem,
-    impact,
-    actions
-):
-    """
-    Generate an AI-powered Mission Intelligence Brief using IBM Granite.
-    The AI is grounded in structured outputs from the ML pipeline.
-    """
+def generate_ai_mission_brief(mission_status, anomaly_count, primary_cause, subsystem, impact, actions):
     model = get_watsonx_model()
 
     if model is None:
-        return (
-            "⚠️ **Generative AI is not configured.**\n\n"
-            "To enable the AI Mission Brief, add the following environment variables:\n"
-            "- `WATSONX_APIKEY`\n"
-            "- `WATSONX_PROJECT_ID`\n\n"
-            "The ML anomaly detection and mission assessment are still fully functional."
-        )
+        return "⚠️ **Generative AI is not configured.**\n\nThe ML anomaly detection and mission assessment are still fully functional."
 
-    actions_text = "\n".join(f"- {a}" for a in actions)
-
-    prompt = f"""
+    try:
+        actions_text = "\n".join(f"- {a}" for a in actions)
+        
+        prompt = f"""
 You are a spacecraft mission intelligence assistant.
-
-Generate a concise operational mission brief based ONLY on
-the telemetry analysis provided below.
 
 Mission status: {mission_status}
 Detected anomalies: {anomaly_count}
@@ -544,34 +525,18 @@ Mission impact: {impact}
 Recommended actions:
 {actions_text}
 
-Your response must contain exactly these sections:
-
-MISSION ASSESSMENT
-IMPACT
-RECOMMENDED ACTIONS
-CONFIDENCE NOTE
-
-Do not invent telemetry values.
-Do not claim that the spacecraft has failed unless the evidence
-explicitly supports that conclusion.
-Clearly distinguish detected anomalies from possible causes.
-Keep the response concise and suitable for a flight operations team.
+Generate a concise operational mission brief with sections: MISSION ASSESSMENT, IMPACT, RECOMMENDED ACTIONS, CONFIDENCE NOTE.
 """
 
-    try:
         response = model.generate(
             prompt=prompt,
-            params={
-                "max_new_tokens": 300,
-                "temperature": 0.2,
-                "top_p": 0.9
-            }
+            params={"max_new_tokens": 300, "temperature": 0.2, "top_p": 0.9}
         )
 
         return response["results"][0]["generated_text"]
 
-    except Exception as e:
-        return f"⚠️ **AI Mission Brief unavailable:** {str(e)}"
+    except Exception:
+        return "⚠️ **AI Mission Brief unavailable.**\n\nThe ML anomaly detection and mission assessment are still fully functional."
 
 
 def apply_scenario(df, scenario):
