@@ -21,7 +21,12 @@ from sklearn.svm import OneClassSVM
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.metrics import f1_score, confusion_matrix
+from dotenv import load_dotenv
+from ibm_watsonx_ai.foundation_models import ModelInference
+from ibm_watsonx_ai import Credentials
 
+# Load environment variables
+load_dotenv()
 
 # ═════════════════════════════════════════════════════════════════════════════
 # SESSION STATE INITIALIZATION
@@ -466,7 +471,105 @@ def generate_mission_recommendation(causes):
     actions  = MISSION_ACTION_LIBRARY.get(feature, {}).get(severity, ["Continue monitoring."])
     return {"impact": impact, "actions": actions,
             "subsystem": classify_subsystem(feature), "primary_cause": primary}
+# ═════════════════════════════════════════════════════════════════════════════
+# GENERATIVE AI - MISSION BRIEF GENERATOR
+# ═════════════════════════════════════════════════════════════════════════════
 
+@st.cache_resource(show_spinner=False)
+def get_watsonx_model():
+    """
+    Initialize IBM watsonx.ai model for Mission Brief generation.
+    Returns None if credentials are not configured.
+    """
+    api_key = os.getenv("WATSONX_APIKEY")
+    project_id = os.getenv("WATSONX_PROJECT_ID")
+    url = os.getenv("WATSONX_URL", "https://us-south.ml.cloud.ibm.com")
+
+    if not api_key or not project_id:
+        return None
+
+    credentials = Credentials(
+        url=url,
+        api_key=api_key
+    )
+
+    model = ModelInference(
+        model_id="ibm/granite-3-8b-instruct",
+        credentials=credentials,
+        project_id=project_id
+    )
+
+    return model
+
+
+def generate_ai_mission_brief(
+    mission_status,
+    anomaly_count,
+    primary_cause,
+    subsystem,
+    impact,
+    actions
+):
+    """
+    Generate an AI-powered Mission Intelligence Brief using IBM Granite.
+    The AI is grounded in structured outputs from the ML pipeline.
+    """
+    model = get_watsonx_model()
+
+    if model is None:
+        return (
+            "⚠️ **Generative AI is not configured.**\n\n"
+            "To enable the AI Mission Brief, add the following environment variables:\n"
+            "- `WATSONX_APIKEY`\n"
+            "- `WATSONX_PROJECT_ID`\n\n"
+            "The ML anomaly detection and mission assessment are still fully functional."
+        )
+
+    actions_text = "\n".join(f"- {a}" for a in actions)
+
+    prompt = f"""
+You are a spacecraft mission intelligence assistant.
+
+Generate a concise operational mission brief based ONLY on
+the telemetry analysis provided below.
+
+Mission status: {mission_status}
+Detected anomalies: {anomaly_count}
+Primary root cause: {primary_cause}
+Subsystem: {subsystem}
+Mission impact: {impact}
+
+Recommended actions:
+{actions_text}
+
+Your response must contain exactly these sections:
+
+MISSION ASSESSMENT
+IMPACT
+RECOMMENDED ACTIONS
+CONFIDENCE NOTE
+
+Do not invent telemetry values.
+Do not claim that the spacecraft has failed unless the evidence
+explicitly supports that conclusion.
+Clearly distinguish detected anomalies from possible causes.
+Keep the response concise and suitable for a flight operations team.
+"""
+
+    try:
+        response = model.generate(
+            prompt=prompt,
+            params={
+                "max_new_tokens": 300,
+                "temperature": 0.2,
+                "top_p": 0.9
+            }
+        )
+
+        return response["results"][0]["generated_text"]
+
+    except Exception as e:
+        return f"⚠️ **AI Mission Brief unavailable:** {str(e)}"
 
 def apply_scenario(df, scenario):
     if scenario not in SIMULATION_SCENARIOS:
