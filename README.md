@@ -42,6 +42,10 @@ MIRA-Satellite-Anomaly-Investigator/
 ├── requirements.txt # Python dependencies
 └── README.md # Project documentation
 
+# MIRA-Satellite-Anomaly-Investigator
+
+MIRA is a satellite anomaly detection system powered by OneClassSVM.
+
 ## 🏗️ Architecture
 
 ```mermaid
@@ -111,6 +115,7 @@ graph TB
     style U fill:#060d20,stroke:#7eb8f7,color:#fff,stroke-width:2px
     style V fill:#060d20,stroke:#7eb8f7,color:#fff,stroke-width:2px
     style W fill:#060d20,stroke:#7eb8f7,color:#fff,stroke-width:2px
+```
 ## 🚀 How to Run
 1. Clone the repository:
    ```bash
