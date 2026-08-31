@@ -22,6 +22,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.metrics import f1_score, confusion_matrix
 from dotenv import load_dotenv
+from google import genai
 
 # Load environment variables
 load_dotenv()
@@ -472,61 +473,80 @@ def generate_mission_recommendation(causes):
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# GENERATIVE AI - MISSION BRIEF GENERATOR
+# GENERATIVE AI - MISSION BRIEF GENERATOR (Gemini)
 # ═════════════════════════════════════════════════════════════════════════════
 
-@st.cache_resource(show_spinner=False)
-def get_gemini_model():
-    """
-    Initialize Google Gemini model for Mission Brief generation.
-    Returns None if credentials are not configured.
-    """
-    api_key = os.getenv("GEMINI_API_KEY")
-
-    if not api_key:
-        return None
-
-    try:
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
-        return genai.GenerativeModel("gemini-1.5-flash")
-    except:
-        return None
+@st.cache_resource
+def get_gemini_client():
+    api_key = os.getenv("GEMINI_API_KEY") or st.secrets["GEMINI_API_KEY"]
+    return genai.Client(api_key=api_key)
 
 
 def generate_ai_mission_brief(mission_status, anomaly_count, primary_cause, subsystem, impact, actions):
-    """
-    Generate an AI-powered Mission Intelligence Brief using Google Gemini.
-    The AI is grounded in structured outputs from the ML pipeline.
-    """
-    model = get_gemini_model()
-
-    if model is None:
-        return "⚠️ **Generative AI is not configured.**\n\nTo enable the AI Mission Brief, add `GEMINI_API_KEY` to your environment variables.\n\nThe ML anomaly detection and mission assessment are still fully functional."
-
     try:
-        actions_text = "\n".join(f"- {a}" for a in actions)
-        
+        client = get_gemini_client()
+
         prompt = f"""
-You are a spacecraft mission intelligence assistant.
+You are MIRA, a satellite mission anomaly investigation assistant.
 
-Mission status: {mission_status}
-Detected anomalies: {anomaly_count}
-Primary root cause: {primary_cause}
-Subsystem: {subsystem}
-Mission impact: {impact}
+Your job is NOT to detect anomalies.
+The ML system has already detected and assessed the anomaly.
 
-Recommended actions:
-{actions_text}
+You must ONLY interpret the evidence provided below and generate a concise
+mission brief for a satellite operator.
 
-Generate a concise operational mission brief with sections: MISSION ASSESSMENT, IMPACT, RECOMMENDED ACTIONS, CONFIDENCE NOTE.
+MISSION STATUS:
+{mission_status}
+
+DETECTED ANOMALIES:
+{anomaly_count}
+
+PRIMARY ROOT CAUSE:
+{primary_cause}
+
+AFFECTED SUBSYSTEM:
+{subsystem}
+
+MISSION IMPACT:
+{impact}
+
+RECOMMENDED ACTIONS:
+{actions}
+
+Generate the response using exactly these sections:
+
+## Mission Assessment
+Briefly explain what happened.
+
+## Evidence
+Explain which telemetry indicators support the assessment.
+
+## Affected Subsystem
+Identify the most relevant subsystem and explain why.
+
+## Recommended Actions
+Provide practical investigation steps.
+
+## Operator Decision
+State whether the operator should monitor, investigate, or escalate.
+
+IMPORTANT:
+- Do not invent telemetry values.
+- Do not invent events.
+- Do not claim certainty when the evidence is uncertain.
+- Use only the information provided above.
+- Make the answer concise and suitable for a spacecraft operator.
 """
 
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+
         return response.text
 
     except Exception as e:
-        return f"⚠️ **AI Error:** {str(e)}"
+        return f"⚠️ **AI Mission Brief unavailable.**\n\n`{str(e)}`"
 
 
 def apply_scenario(df, scenario):
