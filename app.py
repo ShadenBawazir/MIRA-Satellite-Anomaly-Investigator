@@ -532,6 +532,9 @@ Recommended actions:
 Generate a concise operational mission brief with sections: MISSION ASSESSMENT, IMPACT, RECOMMENDED ACTIONS, CONFIDENCE NOTE.
 """
 
+        # استخدام Service Instance ID بدلاً من Project ID
+        service_instance_id = os.getenv("WATSONX_SERVICE_INSTANCE_ID", "7cd7139a-8150-4f79-a23b-54be128a1e80")
+
         response = requests.post(
             f"{model_info['url']}/ml/v1/text/generation?version=2023-05-29",
             headers={
@@ -546,7 +549,8 @@ Generate a concise operational mission brief with sections: MISSION ASSESSMENT, 
                     "temperature": 0.2,
                     "top_p": 0.9
                 },
-                "project_id": model_info["project_id"]
+                "project_id": "a021b55a-beaa-4a09-a9ee-82a5a32f22aa",
+                "service_instance_id": service_instance_id  # ← أضيفي هذا
             }
         )
         
