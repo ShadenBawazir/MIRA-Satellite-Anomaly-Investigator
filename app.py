@@ -496,7 +496,7 @@ def get_watsonx_model():
     )
 
     model = ModelInference(
-        model_id="ibm/granite-3-3-8b-instruct",  # ← الموديل الحديث المتاح
+        model_id="ibm/granite-3-3-8b-instruct",
         credentials=credentials,
         project_id=project_id
     )
@@ -507,8 +507,8 @@ def get_watsonx_model():
 def generate_ai_mission_brief(mission_status, anomaly_count, primary_cause, subsystem, impact, actions):
     try:
         model = get_watsonx_model()
-    except Exception:
-        return "⚠️ **AI Mission Brief unavailable.**\n\nThe ML anomaly detection and mission assessment are still fully functional."
+    except Exception as e:
+        return f"⚠️ **AI Error:** {str(e)}"
 
     if model is None:
         return "⚠️ **Generative AI is not configured.**\n\nThe ML anomaly detection and mission assessment are still fully functional."
@@ -538,8 +538,8 @@ Generate a concise operational mission brief with sections: MISSION ASSESSMENT, 
 
         return response["results"][0]["generated_text"]
 
-    except Exception:
-        return "⚠️ **AI Mission Brief unavailable.**\n\nThe ML anomaly detection and mission assessment are still fully functional."
+    except Exception as e:
+        return f"⚠️ **AI Error:** {str(e)}"
 
 
 def apply_scenario(df, scenario):
