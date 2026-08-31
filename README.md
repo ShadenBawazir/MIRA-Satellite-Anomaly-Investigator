@@ -42,16 +42,15 @@ MIRA-Satellite-Anomaly-Investigator/
 ├── requirements.txt # Python dependencies
 └── README.md # Project documentation
 
-
 ## 🏗️ Architecture
 
 ```mermaid
 graph TB
-    subgraph "🛰️ Satellite & Ground Segment"
+    subgraph "Satellite & Ground Segment"
         A[OPS-SAT-1<br/>Telemetry Sensors] -->|Raw Telemetry| B[Ground Station<br/>Data Reception]
     end
 
-    subgraph "📊 Data Processing Layer"
+    subgraph "Data Processing Layer"
         B --> C[Data Loading<br/>dataset.csv]
         C --> D[Data Cleaning<br/>& Validation]
         D --> E[Feature Extraction<br/>Statistical Features]
@@ -59,13 +58,13 @@ graph TB
         F --> G[Dataset Split<br/>Train/Test]
     end
 
-    subgraph "🤖 ML Model Layer"
+    subgraph "ML Model Layer"
         G --> H[OneClassSVM<br/>Training]
         H --> I[Model Inference<br/>Prediction]
         I --> J[Anomaly Scores<br/>Decision Function]
     end
 
-    subgraph "🎯 Analysis & Interpretation"
+    subgraph "Analysis & Interpretation"
         J --> K[Risk Classification<br/>CRITICAL/HIGH/MEDIUM/LOW]
         K --> L[Root Cause Analysis<br/>Top 3 Features]
         L --> M[Confidence Scoring<br/>Z-Score Based]
@@ -73,7 +72,7 @@ graph TB
         N --> O[Mission Impact<br/>& Recommendations]
     end
 
-    subgraph "📈 Visualization & UI"
+    subgraph "Visualization & UI"
         O --> P[Streamlit Dashboard]
         P --> Q[KPI Metrics<br/>Anomaly Counts]
         P --> R[Interactive Charts<br/>Timeline/PCA/Radar]
@@ -81,7 +80,7 @@ graph TB
         P --> T[Confusion Matrix<br/>& Model Card]
     end
 
-    subgraph "📦 Output & Reporting"
+    subgraph "Output & Reporting"
         S --> U[AI Mission Report]
         T --> V[Performance Metrics<br/>Precision/Recall/F1]
         U --> W[Actionable Insights<br/>Operator Guidance]
