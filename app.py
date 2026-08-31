@@ -12,7 +12,6 @@ UI design, and ML pipeline). IBM Bob did not create the dataset.
 """
 
 import os
-import requests
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -477,42 +476,33 @@ def generate_mission_recommendation(causes):
 # ═════════════════════════════════════════════════════════════════════════════
 
 @st.cache_resource(show_spinner=False)
-def get_watsonx_model():
+def get_gemini_model():
     """
-    Initialize IBM watsonx.ai model for Mission Brief generation.
+    Initialize Google Gemini model for Mission Brief generation.
     Returns None if credentials are not configured.
     """
-    api_key = os.getenv("WATSONX_APIKEY")
-    project_id = os.getenv("WATSONX_PROJECT_ID")
-    url = os.getenv("WATSONX_URL", "https://eu-de.ml.cloud.ibm.com")
+    api_key = os.getenv("GEMINI_API_KEY")
 
-    if not api_key or not project_id:
+    if not api_key:
         return None
 
-    # Get token
     try:
-        token_response = requests.post(
-            "https://iam.cloud.ibm.com/identity/token",
-            data={
-                "apikey": api_key,
-                "grant_type": "urn:ibm:params:oauth:grant-type:apikey"
-            }
-        )
-        
-        if token_response.status_code == 200:
-            token = token_response.json()["access_token"]
-            return {"token": token, "url": url, "project_id": project_id}
-        else:
-            return None
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
+        return genai.GenerativeModel("gemini-1.5-flash")
     except:
         return None
 
 
 def generate_ai_mission_brief(mission_status, anomaly_count, primary_cause, subsystem, impact, actions):
-    model_info = get_watsonx_model()
+    """
+    Generate an AI-powered Mission Intelligence Brief using Google Gemini.
+    The AI is grounded in structured outputs from the ML pipeline.
+    """
+    model = get_gemini_model()
 
-    if model_info is None:
-        return "⚠️ **Generative AI is not configured.**\n\nThe ML anomaly detection and mission assessment are still fully functional."
+    if model is None:
+        return "⚠️ **Generative AI is not configured.**\n\nTo enable the AI Mission Brief, add `GEMINI_API_KEY` to your environment variables.\n\nThe ML anomaly detection and mission assessment are still fully functional."
 
     try:
         actions_text = "\n".join(f"- {a}" for a in actions)
@@ -532,35 +522,9 @@ Recommended actions:
 Generate a concise operational mission brief with sections: MISSION ASSESSMENT, IMPACT, RECOMMENDED ACTIONS, CONFIDENCE NOTE.
 """
 
-        # استخدام Service Instance ID
-        service_instance_id = os.getenv("WATSONX_SERVICE_INSTANCE_ID", "7cd7139a-8150-4f79-a23b-54be128a1e80")
+        response = model.generate_content(prompt)
+        return response.text
 
-        response = requests.post(
-            f"{model_info['url']}/ml/v1/text/generation?version=2023-05-29",
-            headers={
-                "Authorization": f"Bearer {model_info['token']}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model_id": "ibm/granite-3-8b-instruct",  # ← الموديل الصحيح
-                "input": prompt,
-                "parameters": {
-                    "max_new_tokens": 300,
-                    "temperature": 0.2,
-                    "top_p": 0.9
-                },
-                "project_id": "a021b55a-beaa-4a09-a9ee-82a5a32f22aa",
-                "service_instance_id": service_instance_id
-            }
-        )
-        
-        result = response.json()
-        
-        if "results" in result:
-            return result["results"][0]["generated_text"]
-        else:
-            return f"⚠️ **AI Error:** {result}"
-    
     except Exception as e:
         return f"⚠️ **AI Error:** {str(e)}"
 
