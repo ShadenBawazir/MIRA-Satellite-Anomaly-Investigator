@@ -24,6 +24,18 @@ from sklearn.metrics import f1_score, confusion_matrix
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# SESSION STATE INITIALIZATION
+# ═════════════════════════════════════════════════════════════════════════════
+
+if 'run_clicked' not in st.session_state:
+    st.session_state.run_clicked = False
+if 'last_mode' not in st.session_state:
+    st.session_state.last_mode = None
+if 'results' not in st.session_state:
+    st.session_state.results = None
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 # PAGE CONFIG
 # ═════════════════════════════════════════════════════════════════════════════
 
@@ -899,7 +911,13 @@ with st.sidebar:
                 unsafe_allow_html=True)
 
     st.markdown("<hr>", unsafe_allow_html=True)
-    run_btn = st.button("🚀 Run MIRA Analysis", use_container_width=True)
+    
+    # استخدام session state للزر
+    run_btn = st.button("🚀 Run MIRA Analysis", use_container_width=True, key="run_btn")
+    if run_btn:
+        st.session_state.run_clicked = True
+        st.session_state.last_mode = analysis_mode
+    
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown(
         "<div style='color:#57606a;font-size:0.75rem;line-height:1.6;'>"
@@ -931,7 +949,7 @@ st.markdown("<hr>", unsafe_allow_html=True)
 # IDLE SCREEN
 # ═════════════════════════════════════════════════════════════════════════════
 
-if not run_btn:
+if not st.session_state.run_clicked:
     sub = ("Select <b style='color:#86efac;'>🛰️ Real OPS-SAT Data</b> mode and click"
            if IS_REAL else "Configure the simulation parameters and click")
     st.markdown(
@@ -942,6 +960,12 @@ if not run_btn:
         f"</div>",
         unsafe_allow_html=True)
     st.stop()
+
+# Reset run_clicked when mode changes
+if st.session_state.last_mode != analysis_mode:
+    st.session_state.run_clicked = False
+    st.session_state.last_mode = analysis_mode
+    st.rerun()
 
 
 # ═════════════════════════════════════════════════════════════════════════════
