@@ -1,6 +1,3 @@
-Here's the full corrected README:
-
-```markdown
 # 🛰️ MIRA — Mission Intelligence & Risk Analyzer
 
 <div align="center">
@@ -113,26 +110,22 @@ IBM Bob was used as the **primary AI development assistant** throughout the proj
 ---
 
 ## 📂 Project Structure
-
-```
 MIRA-Satellite-Anomaly-Investigator/
-├── app.py                 # Main Streamlit application
-├── dataset.csv            # Satellite telemetry dataset
-├── requirements.txt       # Python dependencies
-└── README.md              # Project documentation
-```
+├── app.py # Main Streamlit application
+├── dataset.csv # Satellite telemetry dataset
+├── requirements.txt # Python dependencies
+└── README.md # Project documentation
+
 
 ---
 
 ## 📦 Requirements
-
-```
 streamlit>=1.28
 pandas>=2.0
 numpy>=1.24
 scikit-learn>=1.3
 plotly>=5.18
-```
+
 
 ---
 
@@ -204,57 +197,37 @@ graph TB
     style U fill:#060d20,stroke:#7eb8f7,color:#fff,stroke-width:2px
     style V fill:#060d20,stroke:#7eb8f7,color:#fff,stroke-width:2px
     style W fill:#060d20,stroke:#7eb8f7,color:#fff,stroke-width:2px
-```
 
----
+🚀 How to Run
+Prerequisites
+Python 3.9+
 
-## 🚀 How to Run
+pip
 
-### Prerequisites
+Installation
 
-- Python 3.9+
-- pip
-
-### Installation
-
-```bash
 git clone https://github.com/ShadenBawazir/MIRA-Satellite-Anomaly-Investigator.git
 cd MIRA-Satellite-Anomaly-Investigator
 pip install -r requirements.txt
-```
 
-### Run
-
-```bash
+Run
 streamlit run app.py
-```
 
----
 
-## ⚠️ Limitations
+⚠️ Limitations
+One-Class SVM only learns from normal data, cannot distinguish anomaly types
 
-- One-Class SVM only learns from normal data, cannot distinguish anomaly types
-- Results depend on training dataset completeness and quality
-- Normal seasonal variations may be flagged as anomalies
-- Risk thresholds are heuristic and may need per-mission tuning
+Results depend on training dataset completeness and quality
 
----
+Normal seasonal variations may be flagged as anomalies
 
-## 📧 Contact
+Risk thresholds are heuristic and may need per-mission tuning
 
-**Shaden Bawazir**
+📧 Contact
+Shaden Bawazir
 
-- GitHub: [ShadenBawazir](https://github.com/ShadenBawazir)
-- Project: [MIRA-Satellite-Anomaly-Investigator](https://github.com/ShadenBawazir/MIRA-Satellite-Anomaly-Investigator)
+GitHub: ShadenBawazir
 
----
+Project: MIRA-Satellite-Anomaly-Investigator
 
 © 2025 MIRA — Mission Intelligence & Risk Analyzer
-```
-
-**4 changes from your original:**
-1. Title & copyright → **Risk Analyzer** (consistent with the app)
-2. Model performance table → added the *"Evaluated on ESA OPS-SAT-1"* note
-3. Project structure → removed `architecture.md` (it doesn't exist as a file)
-4. Added **📦 Requirements** section with the actual package list
-5. Removed the broken `screenshots/dashboard.png` image and the orphaned `</div>`
