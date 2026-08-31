@@ -538,12 +538,21 @@ IMPORTANT:
 - Make the answer concise and suitable for a spacecraft operator.
 """
 
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",  # ← الموديل الأحدث
-            contents=prompt
-        )
+        import time
 
-        return response.text
+        # إعادة المحاولة عند الازدحام (503) - حتى 3 مرات
+        for attempt in range(3):
+            try:
+                response = client.models.generate_content(
+                    model="gemini-3.6-flash",  # الموديل الوحيد المتاح حالياً
+                    contents=prompt
+                )
+                return response.text
+            except Exception as e:
+                if attempt < 2:
+                    time.sleep(5)  # انتظر 5 ثواني ثم أعد المحاولة
+                else:
+                    return f"⚠️ **AI Mission Brief unavailable.**\n\n`{str(e)}`"
 
     except Exception as e:
         return f"⚠️ **AI Mission Brief unavailable.**\n\n`{str(e)}`"
