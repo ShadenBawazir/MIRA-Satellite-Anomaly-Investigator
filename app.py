@@ -471,6 +471,8 @@ def generate_mission_recommendation(causes):
     actions  = MISSION_ACTION_LIBRARY.get(feature, {}).get(severity, ["Continue monitoring."])
     return {"impact": impact, "actions": actions,
             "subsystem": classify_subsystem(feature), "primary_cause": primary}
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # GENERATIVE AI - MISSION BRIEF GENERATOR
 # ═════════════════════════════════════════════════════════════════════════════
@@ -570,6 +572,7 @@ Keep the response concise and suitable for a flight operations team.
 
     except Exception as e:
         return f"⚠️ **AI Mission Brief unavailable:** {str(e)}"
+
 
 def apply_scenario(df, scenario):
     if scenario not in SIMULATION_SCENARIOS:
@@ -853,6 +856,40 @@ def render_inspector_tab(test_df, preds, scores, normal_stats, features, root_ca
             tbl_rows.append({"Feature": f, "Value": round(float(val),4),
                              "Nominal Mean": round(float(mean),4), "Δ (σ)": round(float(z),2)})
         st.dataframe(pd.DataFrame(tbl_rows).set_index("Feature"), use_container_width=True)
+
+        # ─── AI MISSION BRIEF GENERATOR ─────────────────────────────────────────
+        st.markdown("<hr>", unsafe_allow_html=True)
+        
+        st.markdown(
+            "<div class='section-title'>🤖 AI Mission Intelligence Brief</div>",
+            unsafe_allow_html=True
+        )
+        
+        if st.button("🧠 Generate AI Mission Brief", key=f"ai_brief_{selected}"):
+            with st.spinner("🤖 Generating AI Mission Brief..."):
+                rec = generate_mission_recommendation(causes)
+                
+                primary = causes[0] if causes else {
+                    "title": "No dominant root cause",
+                    "feature": "Multiple features",
+                    "severity": "low"
+                }
+                
+                brief = generate_ai_mission_brief(
+                    mission_status=rlevel,
+                    anomaly_count=len(anomaly_indices),
+                    primary_cause=primary["title"],
+                    subsystem=rec["subsystem"],
+                    impact=rec["impact"],
+                    actions=rec["actions"]
+                )
+                
+                st.markdown(
+                    f"<div class='summary-card' style='background:#080f2e;'>"
+                    f"<div style='font-size:0.95rem;color:#b8cef7;line-height:1.7;'>{brief.replace(chr(10), '<br>')}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
 
     with right:
         st.markdown("**Deviation Radar:**")
