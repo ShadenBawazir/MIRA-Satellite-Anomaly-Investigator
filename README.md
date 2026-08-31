@@ -110,22 +110,26 @@ IBM Bob was used as the **primary AI development assistant** throughout the proj
 ---
 
 ## 📂 Project Structure
-MIRA-Satellite-Anomaly-Investigator/
-├── app.py # Main Streamlit application
-├── dataset.csv # Satellite telemetry dataset
-├── requirements.txt # Python dependencies
-└── README.md # Project documentation
 
+```
+MIRA-Satellite-Anomaly-Investigator/
+├── app.py                 # Main Streamlit application
+├── dataset.csv            # Satellite telemetry dataset
+├── requirements.txt       # Python dependencies
+└── README.md              # Project documentation
+```
 
 ---
 
 ## 📦 Requirements
+
+```
 streamlit>=1.28
 pandas>=2.0
 numpy>=1.24
 scikit-learn>=1.3
 plotly>=5.18
-
+```
 
 ---
 
@@ -197,37 +201,49 @@ graph TB
     style U fill:#060d20,stroke:#7eb8f7,color:#fff,stroke-width:2px
     style V fill:#060d20,stroke:#7eb8f7,color:#fff,stroke-width:2px
     style W fill:#060d20,stroke:#7eb8f7,color:#fff,stroke-width:2px
+```
 
-🚀 How to Run
-Prerequisites
-Python 3.9+
+---
 
-pip
+## 🚀 How to Run
 
-Installation
+### Prerequisites
 
+- Python 3.9+
+- pip
+
+### Installation
+
+```bash
 git clone https://github.com/ShadenBawazir/MIRA-Satellite-Anomaly-Investigator.git
 cd MIRA-Satellite-Anomaly-Investigator
 pip install -r requirements.txt
+```
 
-Run
+### Run
+
+```bash
 streamlit run app.py
+```
 
+---
 
-⚠️ Limitations
-One-Class SVM only learns from normal data, cannot distinguish anomaly types
+## ⚠️ Limitations
 
-Results depend on training dataset completeness and quality
+- One-Class SVM only learns from normal data, cannot distinguish anomaly types
+- Results depend on training dataset completeness and quality
+- Normal seasonal variations may be flagged as anomalies
+- Risk thresholds are heuristic and may need per-mission tuning
 
-Normal seasonal variations may be flagged as anomalies
+---
 
-Risk thresholds are heuristic and may need per-mission tuning
+## 📧 Contact
 
-📧 Contact
-Shaden Bawazir
+**Shaden Bawazir**
 
-GitHub: ShadenBawazir
+- GitHub: [ShadenBawazir](https://github.com/ShadenBawazir)
+- Project: [MIRA-Satellite-Anomaly-Investigator](https://github.com/ShadenBawazir/MIRA-Satellite-Anomaly-Investigator)
 
-Project: MIRA-Satellite-Anomaly-Investigator
+---
 
 © 2025 MIRA — Mission Intelligence & Risk Analyzer
