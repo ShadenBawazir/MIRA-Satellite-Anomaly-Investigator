@@ -1,0 +1,31 @@
+name: Connect to Watsonx.ai
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  test-watsonx:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install dependencies
+        run: |
+          pip install requests
+          pip install ibm-watsonx-ai
+      
+      - name: Test Watsonx.ai connection
+        env:
+          WATSONX_APIKEY: ${{ secrets.WATSONX_APIKEY }}
+          WATSONX_PROJECT_ID: ${{ secrets.WATSONX_PROJECT_ID }}
+          WATSONX_URL: ${{ secrets.WATSONX_URL }}
+        run: |
+          python test_connection.py
