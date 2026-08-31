@@ -12,6 +12,7 @@ UI design, and ML pipeline). IBM Bob did not create the dataset.
 """
 
 import os
+import requests
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -22,8 +23,6 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.metrics import f1_score, confusion_matrix
 from dotenv import load_dotenv
-from ibm_watsonx_ai.foundation_models import ModelInference
-from ibm_watsonx_ai import Credentials
 
 # Load environment variables
 load_dotenv()
@@ -485,32 +484,34 @@ def get_watsonx_model():
     """
     api_key = os.getenv("WATSONX_APIKEY")
     project_id = os.getenv("WATSONX_PROJECT_ID")
-    url = os.getenv("WATSONX_URL", "https://us-south.ml.cloud.ibm.com")
+    url = os.getenv("WATSONX_URL", "https://eu-de.ml.cloud.ibm.com")
 
     if not api_key or not project_id:
         return None
 
-    credentials = Credentials(
-        url=url,
-        api_key=api_key
-    )
-
-    model = ModelInference(
-        model_id="ibm/granite-3-3-8b-instruct",
-        credentials=credentials,
-        project_id=project_id
-    )
-
-    return model
+    # Get token
+    try:
+        token_response = requests.post(
+            "https://iam.cloud.ibm.com/identity/token",
+            data={
+                "apikey": api_key,
+                "grant_type": "urn:ibm:params:oauth:grant-type:apikey"
+            }
+        )
+        
+        if token_response.status_code == 200:
+            token = token_response.json()["access_token"]
+            return {"token": token, "url": url, "project_id": project_id}
+        else:
+            return None
+    except:
+        return None
 
 
 def generate_ai_mission_brief(mission_status, anomaly_count, primary_cause, subsystem, impact, actions):
-    try:
-        model = get_watsonx_model()
-    except Exception as e:
-        return f"⚠️ **AI Error:** {str(e)}"
+    model_info = get_watsonx_model()
 
-    if model is None:
+    if model_info is None:
         return "⚠️ **Generative AI is not configured.**\n\nThe ML anomaly detection and mission assessment are still fully functional."
 
     try:
@@ -531,13 +532,31 @@ Recommended actions:
 Generate a concise operational mission brief with sections: MISSION ASSESSMENT, IMPACT, RECOMMENDED ACTIONS, CONFIDENCE NOTE.
 """
 
-        response = model.generate(
-            prompt=prompt,
-            params={"max_new_tokens": 300, "temperature": 0.2, "top_p": 0.9}
+        response = requests.post(
+            f"{model_info['url']}/ml/v1/text/generation?version=2023-05-29",
+            headers={
+                "Authorization": f"Bearer {model_info['token']}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model_id": "ibm/granite-3-3-8b-instruct",
+                "input": prompt,
+                "parameters": {
+                    "max_new_tokens": 300,
+                    "temperature": 0.2,
+                    "top_p": 0.9
+                },
+                "project_id": model_info["project_id"]
+            }
         )
-
-        return response["results"][0]["generated_text"]
-
+        
+        result = response.json()
+        
+        if "results" in result:
+            return result["results"][0]["generated_text"]
+        else:
+            return f"⚠️ **AI Error:** {result}"
+    
     except Exception as e:
         return f"⚠️ **AI Error:** {str(e)}"
 
