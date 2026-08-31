@@ -244,7 +244,7 @@ streamlit run app.py
 
 
 
-**Built with ❤️ and 🤖 IBM Bob**
+
 
 © 2025 MIRA — Mission Intelligence & Root-cause Analyzer
 
