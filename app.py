@@ -567,7 +567,7 @@ SIMULATION_SCENARIOS = {
         "description": "Battery voltage drops and solar panel output decreases significantly.",
         "modifications": {
             "Battery Voltage (V)": -3.0,
-            "Solar Panel Output (W)": -0.45  # 55% decrease
+            "Solar Panel Output (W)": -0.45
         }
     },
     "Thermal Stress": {
@@ -580,7 +580,7 @@ SIMULATION_SCENARIOS = {
         "description": "Signal strength drops and downlink rate decreases.",
         "modifications": {
             "Signal Strength (dBm)": -20.0,
-            "Downlink Rate (Mbps)": -0.8  # 80% decrease
+            "Downlink Rate (Mbps)": -0.8
         }
     },
     "Attitude Drift": {
@@ -734,11 +734,9 @@ def run_predict(model, scaler, df: pd.DataFrame, features: list):
 
 def classify_subsystem(feature: str) -> str:
     """Classify a feature into its subsystem."""
-    # First check exact match in SIM_FEATURES
     if feature in SUBSYSTEM_LIBRARY:
         return SUBSYSTEM_LIBRARY[feature]
     
-    # Then check OPS-SAT feature prefixes
     for prefix, subsystem in OPS_SAT_SUBSYSTEM_MAP.items():
         if feature.startswith(prefix) or prefix in feature:
             return subsystem
@@ -748,16 +746,16 @@ def classify_subsystem(feature: str) -> str:
 
 def calculate_confidence(z_score: float, severity: str) -> float:
     """Calculate confidence based on z-score and severity."""
-    base_confidence = min(1.0, z_score / 6.0)  # 6σ = 100% confidence
+    base_confidence = min(1.0, z_score / 6.0)
     
     if severity == "high":
-        confidence = base_confidence * 0.9  # High severity slightly reduces confidence
+        confidence = base_confidence * 0.9
     elif severity == "medium":
-        confidence = base_confidence * 0.75  # Medium severity reduces confidence more
+        confidence = base_confidence * 0.75
     else:
-        confidence = base_confidence * 0.6  # Low severity reduces confidence most
+        confidence = base_confidence * 0.6
     
-    return max(0.3, min(1.0, confidence))  # Clamp between 30% and 100%
+    return max(0.3, min(1.0, confidence))
 
 
 def explain_anomaly(row: pd.Series, normal_stats: pd.DataFrame, features: list, root_cause_lib: dict):
@@ -784,7 +782,6 @@ def explain_anomaly(row: pd.Series, normal_stats: pd.DataFrame, features: list, 
             title = f"⚠️ Feature Deviation: {feat}"
             desc = f"Value {val:.4g} deviates {z:.2f}σ from the nominal mean ({mean:.4g})."
         
-        # Calculate confidence
         confidence = calculate_confidence(z, severity)
         subsystem = classify_subsystem(feat)
         
@@ -800,7 +797,7 @@ def explain_anomaly(row: pd.Series, normal_stats: pd.DataFrame, features: list, 
         })
     
     causes.sort(key=lambda c: c["z_score"], reverse=True)
-    return causes[:3]  # Top 3
+    return causes[:3]
 
 
 def generate_mission_recommendation(causes):
@@ -816,15 +813,12 @@ def generate_mission_recommendation(causes):
     feature = primary["feature"]
     severity = primary["severity"]
     
-    # Get mission impact
     impact = MISSION_IMPACT_LIBRARY.get(feature, {}).get(severity, 
                 "Potential subsystem degradation detected. Monitor closely.")
     
-    # Get recommended actions
     actions = MISSION_ACTION_LIBRARY.get(feature, {}).get(severity, 
                 ["Continue monitoring the affected telemetry."])
     
-    # Get subsystem
     subsystem = classify_subsystem(feature)
     
     return {
@@ -842,17 +836,14 @@ def generate_mission_recommendation(causes):
 def generate_mission_summary(preds, scores, risk_counts, n_anomalies, n_total):
     """Generate a comprehensive mission intelligence summary."""
     
-    # Calculate key metrics
     anomaly_rate = (n_anomalies / n_total) * 100 if n_total > 0 else 0
     critical_count = risk_counts.get("CRITICAL", 0)
     high_count = risk_counts.get("HIGH", 0)
     medium_count = risk_counts.get("MEDIUM", 0)
     low_count = risk_counts.get("LOW", 0)
     
-    # Determine mission status
     status, message = get_mission_status(risk_counts)
     
-    # Generate summary text
     if n_anomalies == 0:
         summary_text = "All systems are operating within nominal parameters. No anomalous behavior detected."
         recommendation = "Continue routine monitoring and maintain current operational tempo."
@@ -893,7 +884,6 @@ def render_mission_summary(summary_data):
     status = summary_data["status"]
     metrics = summary_data["metrics"]
     
-    # Color based on status
     color_map = {
         "CRITICAL": "#ef4444",
         "HIGH": "#f59e0b",
@@ -944,7 +934,7 @@ def render_mission_summary(summary_data):
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# CONFUSION MATRIX
+# CONFUSION MATRIX (with fix)
 # ═════════════════════════════════════════════════════════════════════════════
 
 def render_confusion_matrix(preds, true_labels):
@@ -953,8 +943,13 @@ def render_confusion_matrix(preds, true_labels):
     if true_labels is None:
         return
     
+    # تحويل true_labels لتتوافق مع preds
+    # true_labels: 0 = normal, 1 = anomaly
+    # preds: 1 = normal, -1 = anomaly
+    true_labels_binary = np.where(true_labels == 1, -1, 1)
+    
     # Create confusion matrix
-    cm = confusion_matrix(true_labels, preds, labels=[1, -1])
+    cm = confusion_matrix(true_labels_binary, preds, labels=[1, -1])
     
     # Extract values
     tn, fp = cm[0]  # True Normal, False Anomaly
@@ -964,7 +959,7 @@ def render_confusion_matrix(preds, true_labels):
     accuracy = (tp + tn) / max(tp + tn + fp + fn, 1)
     precision = tp / max(tp + fp, 1)
     recall = tp / max(tp + fn, 1)
-    f1 = f1_score(true_labels, preds, labels=[1, -1], zero_division=0)
+    f1 = f1_score(true_labels_binary, preds, labels=[1, -1], zero_division=0)
     
     # Render confusion matrix as plotly heatmap
     fig = go.Figure(data=go.Heatmap(
@@ -1130,7 +1125,6 @@ def render_ai_report(summary_data, causes_list, risk_counts):
         unsafe_allow_html=True
     )
     
-    # Section 1: Mission Status
     status = summary_data["status"]
     color_map = {
         "CRITICAL": "#ef4444",
@@ -1150,7 +1144,6 @@ def render_ai_report(summary_data, causes_list, risk_counts):
         unsafe_allow_html=True
     )
     
-    # Section 2: Summary
     st.markdown(
         "<div style='font-size: 0.9rem; color: #b8cef7; margin-bottom: 12px;'>"
         f"<b>📝 Summary:</b> {summary_data['summary_text']}"
@@ -1158,7 +1151,6 @@ def render_ai_report(summary_data, causes_list, risk_counts):
         unsafe_allow_html=True
     )
     
-    # Section 3: Key Metrics
     metrics = summary_data["metrics"]
     st.markdown(
         f"""
@@ -1176,7 +1168,6 @@ def render_ai_report(summary_data, causes_list, risk_counts):
         unsafe_allow_html=True
     )
     
-    # Section 4: Root Causes
     if causes_list:
         st.markdown(
             "<div style='font-size: 0.9rem; color: #b8cef7; margin-bottom: 12px;'>"
@@ -1197,7 +1188,6 @@ def render_ai_report(summary_data, causes_list, risk_counts):
                 unsafe_allow_html=True
             )
     
-    # Section 5: Recommendation
     st.markdown(
         f"""
         <div style='font-size: 0.9rem; color: #b8cef7; margin-top: 12px; padding-top: 12px; border-top: 1px solid #1e3a8a;'>
@@ -1309,7 +1299,6 @@ def apply_scenario(df: pd.DataFrame, scenario: str) -> pd.DataFrame:
     for feature, change in modifications.items():
         if feature in df.columns:
             if change < 0:
-                # For percentage-like changes (e.g., 0.45 means 45% decrease)
                 if abs(change) < 1:
                     df[feature] *= (1 + change)
                 else:
@@ -1465,7 +1454,6 @@ def render_inspector(test_df, preds, scores, normal_stats, features, root_cause_
                     unsafe_allow_html=True,
                 )
             
-            # Mission Impact and Recommended Actions
             recommendation = generate_mission_recommendation(causes)
             
             st.markdown("**🎯 Mission Impact:**")
@@ -1521,7 +1509,6 @@ with st.sidebar:
         n_frames = st.slider("Training frames", 100, 1000, 300, 50)
         anomaly_pct = st.slider("Injected anomaly %", 1, 30, 8, 1)
         
-        # Add scenario selection
         st.markdown("<hr>", unsafe_allow_html=True)
         st.markdown("### 🎯 Simulation Scenario")
         selected_scenario = st.selectbox(
@@ -1647,7 +1634,6 @@ if IS_REAL:
     
     # Render AI Mission Report
     st.markdown("<hr>", unsafe_allow_html=True)
-    # Get top causes from worst anomalies
     anomaly_indices = np.where(preds == -1)[0]
     all_causes = []
     if len(anomaly_indices) > 0:
@@ -1709,7 +1695,6 @@ else:
     with st.spinner("🛰️ Generating synthetic telemetry stream…"):
         normal_df = generate_normal_data(n_frames)
         
-        # Apply scenario if selected
         if selected_scenario != "Normal Operation":
             normal_df = apply_scenario(normal_df, selected_scenario)
         
