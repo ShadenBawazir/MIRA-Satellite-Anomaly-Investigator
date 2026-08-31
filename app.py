@@ -532,7 +532,7 @@ Recommended actions:
 Generate a concise operational mission brief with sections: MISSION ASSESSMENT, IMPACT, RECOMMENDED ACTIONS, CONFIDENCE NOTE.
 """
 
-        # استخدام Service Instance ID بدلاً من Project ID
+        # استخدام Service Instance ID
         service_instance_id = os.getenv("WATSONX_SERVICE_INSTANCE_ID", "7cd7139a-8150-4f79-a23b-54be128a1e80")
 
         response = requests.post(
@@ -542,7 +542,7 @@ Generate a concise operational mission brief with sections: MISSION ASSESSMENT, 
                 "Content-Type": "application/json"
             },
             json={
-                "model_id": "ibm/granite-3-3-8b-instruct",
+                "model_id": "ibm/granite-3-8b-instruct",  # ← الموديل الصحيح
                 "input": prompt,
                 "parameters": {
                     "max_new_tokens": 300,
@@ -550,7 +550,7 @@ Generate a concise operational mission brief with sections: MISSION ASSESSMENT, 
                     "top_p": 0.9
                 },
                 "project_id": "a021b55a-beaa-4a09-a9ee-82a5a32f22aa",
-                "service_instance_id": service_instance_id  # ← أضيفي هذا
+                "service_instance_id": service_instance_id
             }
         )
         
