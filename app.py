@@ -36,7 +36,7 @@ st.set_page_config(
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# DARK SPACE THEME
+# DARK SPACE THEME (بدون rocket animation)
 # ═════════════════════════════════════════════════════════════════════════════
 
 SPACE_CSS = """
@@ -334,7 +334,7 @@ hr {
 st.markdown(SPACE_CSS, unsafe_allow_html=True)
 
 # ═════════════════════════════════════════════════════════════════════════════
-# STARFIELD
+# STARFIELD (بدون rocket animation)
 # ═════════════════════════════════════════════════════════════════════════════
 
 st.markdown(
@@ -934,7 +934,7 @@ def render_mission_summary(summary_data):
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# CONFUSION MATRIX (with fix)
+# CONFUSION MATRIX
 # ═════════════════════════════════════════════════════════════════════════════
 
 def render_confusion_matrix(preds, true_labels):
