@@ -117,10 +117,15 @@ graph TB
     style W fill:#060d20,stroke:#7eb8f7,color:#fff,stroke-width:2px
 ```
 ## 🚀 How to Run
+
 git clone https://github.com/ShadenBawazir/MIRA-Satellite-Anomaly-Investigator.git
 cd MIRA-Satellite-Anomaly-Investigator
+
 pip install -r requirements.txt
+
 streamlit run app.py
+
+
 📧 Contact
 Shaden Bawazir
 GitHub
