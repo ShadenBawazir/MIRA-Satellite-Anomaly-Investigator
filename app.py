@@ -539,7 +539,7 @@ IMPORTANT:
 """
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash",  # ← الموديل الأقل ازدحاماً
+            model="gemini-1.5-flash",  # ← الموديل المستقر
             contents=prompt
         )
 
