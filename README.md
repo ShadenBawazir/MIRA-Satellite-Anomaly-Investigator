@@ -236,7 +236,15 @@ streamlit run app.py
 - Risk thresholds are heuristic and may need per-mission tuning
 
 ---
+## 🎥 Demo
 
+Demo video: [Watch MIRA Demo](https://youtu.be/SLFA2Bq9u98)
+
+## 🚀 Live App
+
+[Streamlit App](https://mira-satellite-anomaly-investigator-fmq5jcvybztm9vfxpdmrga.streamlit.app/)
+
+---
 ## 📧 Contact
 
 **Shaden Bawazir**
