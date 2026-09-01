@@ -238,7 +238,7 @@ streamlit run app.py
 ---
 ## 🎥 Demo
 
-Demo video: [Watch MIRA Demo](https://youtu.be/SLFA2Bq9u98)
+Demo video: [Watch MIRA Demo](https://youtu.be/k_QxKcVLYOo)
 
 ## 🚀 Live App
 
